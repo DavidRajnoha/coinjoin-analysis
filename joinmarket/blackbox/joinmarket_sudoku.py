@@ -5,11 +5,12 @@ Blockchain Analyst Report Generator (initial version)
 Loads and parses all block data from btc-node, with no knowledge of wallets or internal simulator data.
 Ready for further analysis as instructed.
 """
-from itertools import permutations
-from typing import List, Dict, Any, Tuple
+from typing import Dict, Any
+from collections import defaultdict
+from typing import List, Tuple
 
 
-from itertools import combinations, permutations
+from itertools import combinations
 
 # Import the CoinJoin model
 from joinmarket.common.coinjoin_model import CoinJoin, TxInput, TxOutput, CoinJoinParticipant
@@ -24,118 +25,103 @@ SAT = 1e-8  # 1 sat (float representation)
 # ---------------------------------------------------------------------------
 
 
-def solve_joinmarket_sudoku(coinjoins, tx_map):
-    """
-    Solve the JoinMarket sudoku for a list of potential CoinJoin transactions.
-    
-    Args:
-        coinjoins: List of potential CoinJoin transactions (txid, tx, block)
-        tx_map: Map of transaction IDs to transaction data
-        
-    Returns:
-        List of CoinJoin objects created from blackbox analysis
-    """
-    coinjoin_results = []
-    coinjoin_objects = []
-    
-    for txid, tx, block in coinjoins:
-        print(f"\nCoinJoin txid: {txid}")
-        
-        # Solve the sudoku to get potential participant assignments
-        solutions = coinjoin_sudoku(tx, tx_map)
-        
-        if not solutions:
-            print("  No valid JoinMarket-style decomposition found.")
-            continue
-        
-        # Store the raw solutions for debugging
-        coinjoin_results.append({'txid': txid, 'solutions': solutions})
-        
-        # Get the best solution (first one)
-        best_solution = solutions[0] if solutions else None
-        if not best_solution:
-            continue
-            
-        # Print solution details for debugging
-        for idx, sol in enumerate(solutions, 1):
-            print(f"  Solution {idx}:")
-            for p in sol:
-                in_str = ', '.join([f"{vin['vin']['txid']}:{vin['vin']['vout']} ({vin['value']:.8f})" for vin in p['inputs']])
-                in_sum = sum(vin['value'] for vin in p['inputs'])
-                ch_out = p['change']
-                ch_str = f"n={ch_out['n']}, value={ch_out['value']:.8f}" if ch_out else '-'
-                cj_out = p['cj']
-                cj_str = f"n={cj_out['n']}, value={cj_out['value']:.8f}" if cj_out else '-'
-                print(f"    Role: {p['role']} | Inputs: {in_str} | Input Value: {in_sum:.8f} | Change: {ch_str} | CJ Out: {cj_str} | Delta: {p['delta']:.8f}")
-        
-        # Find equal-valued outputs (CoinJoin outputs)
-        output_values = {}
-        for vout in tx['vout']:
-            value = vout['value']
-            if value not in output_values:
-                output_values[value] = []
-            output_values[value].append(vout)
-        
-        # Find the most common output value (CoinJoin amount)
-        cj_value = max((v for v, outs in output_values.items() if len(outs) > 1), 
-                      key=lambda v: len(output_values[v]), default=0)
-        
-        # Create a CoinJoin object with participants from the best solution
-        participants = []
-        
-        for participant in best_solution:
-            # Create TxInput objects
-            tx_inputs = []
-            for vin_info in participant['inputs']:
-                vin = vin_info['vin']
-                tx_inputs.append(TxInput(
-                    txid=vin['txid'],
-                    vout=vin['vout'],
-                    value=vin_info['value'],
-                    address=None  # We don't have this information from blackbox analysis
-                ))
-            
-            # Create TxOutput objects
-            cj_out_data = participant['cj']
-            cj_output = TxOutput(
-                n=cj_out_data['n'],
-                value=cj_out_data['value'],
-                address=tx['vout'][cj_out_data['n']].get('scriptPubKey', {}).get('address'),
-                is_change=False
+
+
+def _build_participants(best_solution: list[dict], tx: dict) -> list[CoinJoinParticipant]:
+    """Translate one sudoku solution into CoinJoinParticipant objects."""
+    participants: list[CoinJoinParticipant] = []
+
+    for part in best_solution:
+        # ---- inputs --------------------------------------------------------
+        inputs = [
+            TxInput(
+                txid=vin_info['vin']['txid'],
+                vout=vin_info['vin']['vout'],
+                value=vin_info['value'],
+                address=None,                # black-box ⇒ we don’t know
             )
-            
-            change_output = None
-            if participant['change']:
-                ch_out_data = participant['change']
-                change_output = TxOutput(
-                    n=ch_out_data['n'],
-                    value=ch_out_data['value'],
-                    address=tx['vout'][ch_out_data['n']].get('scriptPubKey', {}).get('address'),
-                    is_change=True
-                )
-            
-            # Create the participant
-            participants.append(CoinJoinParticipant(
-                inputs=tx_inputs,
+            for vin_info in part['inputs']
+        ]
+
+        # ---- outputs -------------------------------------------------------
+        cj_out = part['cj']
+        cj_output = TxOutput(
+            n=cj_out['n'],
+            value=cj_out['value'],
+            address=tx['vout'][cj_out['n']].get('scriptPubKey', {}).get('address'),
+            is_change=False,
+        )
+
+        change_output = None
+        if part['change']:
+            ch_out = part['change']
+            change_output = TxOutput(
+                n=ch_out['n'],
+                value=ch_out['value'],
+                address=tx['vout'][ch_out['n']].get('scriptPubKey', {}).get('address'),
+                is_change=True,
+            )
+
+        participants.append(
+            CoinJoinParticipant(
+                inputs=inputs,
                 cj_output=cj_output,
                 change_output=change_output,
-                role=participant['role'],
-                delta=participant['delta']
-            ))
-        
-        # Create the CoinJoin object
-        coinjoin_obj = CoinJoin(
-            txid=txid,
-            block_height=block.get('height', 0),
-            tx=tx,
-            participants=participants,
-            meta={'blackbox_analysis': True}
+                role=part['role'],
+                delta=part['delta'],
+            )
         )
-        
-        coinjoin_objects.append(coinjoin_obj)
-    
-    # Return the CoinJoin objects
+    return participants
+
+
+def solve_joinmarket_sudoku(
+    coinjoins: List[Tuple[str, dict, dict]],
+    tx_map: dict,
+):
+    """
+    Attempt a JoinMarket sudoku decomposition for each candidate CJ tx, but
+    *always* return a CoinJoin object – even when no valid decomposition exists.
+    """
+    coinjoin_objects: list[CoinJoin] = []
+    coinjoin_results: list[dict]      = []          # full raw solver output
+
+    for txid, tx, block in coinjoins:
+        solutions = coinjoin_sudoku(tx, tx_map)
+        coinjoin_results.append({'txid': txid, 'solutions': solutions})
+
+        # ── candidate CJ output amount ─────────────────────────────────────
+        value_buckets: defaultdict[float, list] = defaultdict(list)
+        for n, vout in enumerate(tx['vout']):
+            value_buckets[vout['value']].append(n)
+        cj_value = max(
+            (v for v, idxs in value_buckets.items() if len(idxs) > 1),
+            key=lambda v: len(value_buckets[v]),
+            default=None,
+        )
+
+        # ── participants (only if we have at least one solution) ───────────
+        participants = (
+            _build_participants(solutions[0], tx) if solutions else []
+        )
+
+        coinjoin_objects.append(
+            CoinJoin(
+                txid=txid,
+                block_height=block.get('height', 0),
+                tx=tx,
+                participants=participants,           # may be empty
+                meta={
+                    'blackbox_analysis': True,
+                    'sudoku_solved': bool(solutions),
+                    'candidate_cj_value': cj_value,
+                    'input_count': len(tx['vin']),
+                    'output_count': len(tx['vout']),
+                },
+            )
+        )
+
     return coinjoin_objects, coinjoin_results
+
 
 
 

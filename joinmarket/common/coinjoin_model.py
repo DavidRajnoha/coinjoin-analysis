@@ -189,7 +189,7 @@ class CoinJoin:
         for out in tx['vout']:
             addr = out.get('scriptPubKey', {}).get('address')
             client = address_to_client.get(addr) if addr else None
-            is_change = addr in input_addrs
+            is_change = out['value'] != cj_value
             
             output = TxOutput(
                 n=out['n'],

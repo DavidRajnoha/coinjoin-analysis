@@ -102,6 +102,9 @@ class CoinJoinGraphBuilder:
             self.positions = {}
             self.output_to_addr = {}
             self._is_built = False
+
+    def _is_coinjoin_txid(self, txid):
+        return txid in self.cj_txids
             
     def _build_nodes_and_edges(self):
         self.nodes = set()
@@ -113,7 +116,6 @@ class CoinJoinGraphBuilder:
             self.cj_txids.add(cj.txid)
             for participant in cj.participants:
                 self._process_inputs(cj, participant)
-                # self._process_outputs(cj, participant)
                 if not self.show_changes:
                     continue
                 self._process_change_outputs(cj, participant)
@@ -122,21 +124,23 @@ class CoinJoinGraphBuilder:
         # Process inputs for a participant
         if hasattr(participant, 'inputs'):
             for inp in participant.inputs:
-                addr = self.get_address(inp)
-                self.nodes.add(addr)
+                if not self._is_coinjoin_txid(inp.txid):
+                    continue
+
+                self.nodes.add(inp.txid)  # Add txid as a node (input)
                 value = getattr(inp, 'value', 0.0)
                 role = getattr(participant, 'role', 'unknown')
                 client = getattr(participant, 'client', None)
                 try:
                     self.edges.append(
                         Edge(
-                            src=addr,
+                            src=inp.txid,
                             dst=cj.txid,
-                            src_type="address",
+                            src_type="CoinJoin",
                             dst_type="CoinJoin",
                             value=value,
                             role=role,
-                            out_n=None,
+                            out_n=inp.vout,
                             client=client,
                             label=f"{value:.8f}" if value else "",
                         )
@@ -144,38 +148,6 @@ class CoinJoinGraphBuilder:
                 except Exception as e:
                     print(f"Error creating edge for input in {cj.txid}: {e}")
 
-    def _process_outputs(self, cj, participant):
-        # Process CoinJoin outputs for a participant
-        if hasattr(participant, 'cj_output') and participant.cj_output:
-            out = participant.cj_output
-            if hasattr(out, 'n') and hasattr(out, 'address'):
-                vout_n = out.n
-                addr = self.get_address(out)
-                if addr:
-                    self.output_to_addr[(cj.txid, vout_n)] = addr
-                    self.nodes.add(addr)
-                    value = getattr(out, 'value', 0.0)
-                    role = getattr(participant, 'role', 'unknown')
-                    client = getattr(participant, 'client', None)
-                    out_n = getattr(out, 'n', 0)
-                    if client:
-                        self.client_addr_map[addr] = client
-                    try:
-                        self.edges.append(
-                            Edge(
-                                src=cj.txid,
-                                dst=addr,
-                                src_type="CoinJoin",
-                                dst_type="address",
-                                value=value,
-                                role=role,
-                                out_n=out_n,
-                                client=client,
-                                label=f"{value:.8f}" if value else "",
-                            )
-                        )
-                    except Exception as e:
-                        print(f"Error creating edge for CJ output in {cj.txid}: {e}")
 
     def _process_change_outputs(self, cj, participant):
         # Process change outputs for a participant, if enabled
@@ -209,158 +181,88 @@ class CoinJoinGraphBuilder:
                         )
             except Exception as e:
                 print(f"Error creating edge for change output in {cj.txid}: {e}")
-    
+
+
     def _calculate_positions(self):
-        """Calculate positions for the nodes in the visualization."""
+        """Efficient and deterministic layout of CoinJoin graph nodes."""
         if not self.nodes:
-            print("Warning: No nodes to position")
             self.positions = {}
             return
-            
-        # Get block heights for CoinJoin transactions
-        block_heights = {}
-        for tx in self.coinjoins:
-            block_heights[tx.txid] = tx.block_height
-        
-        # Get the set of CoinJoin nodes
-        cj_nodes = set(self.cj_txids)
-        
-        # Get output roles
-        output_roles = {}
-        output_spent = {}
-        
-        # Track which outputs are spent in other CoinJoins
-        for tx in self.coinjoins:
-            # Get inputs from all participants
-            for participant in tx.participants:
-                if hasattr(participant, 'inputs'):
-                    for inp in participant.inputs:
-                        output_spent.setdefault((inp.txid, inp.vout), (tx.txid, None))
-            
-            # Get outputs from all participants
-            for participant in tx.participants:
-                # Add CoinJoin output
-                if hasattr(participant, 'cj_output'):
-                    output = participant.cj_output
-                    output_roles[(tx.txid, output.n)] = {
-                        'is_change': False,
-                        'type': 'coinjoin',
-                        'role': getattr(participant, 'role', 'unknown')
-                    }
-                
-                # Add change output if present
-                if hasattr(participant, 'change_output') and participant.change_output:
-                    output = participant.change_output
-                    output_roles[(tx.txid, output.n)] = {
-                        'is_change': True,
-                        'type': 'change',
-                        'role': getattr(participant, 'role', 'unknown')
-                    }
-        
-        # First, position the CoinJoin transactions based on block height
-        if not cj_nodes:
-            print("Warning: No CoinJoin nodes to position")
-            self.positions = {}
-            return
-            
-        # Sort CoinJoins by block height
-        get_block_height = lambda txid: block_heights.get(txid, 0)
-        
-        cj_sorted = sorted(cj_nodes, key=lambda x: (get_block_height(block_heights[x]), x))
-        x_map = {txid: i*200 for i, txid in enumerate(cj_sorted)}
-        
-        positions = {}
+
+        # Build necessary metadata in a single pass
+        output_info = {}  # (txid, vout) -> dict with addr, role, type, spent_in
+        cj_block_heights = {}
+        for cj in self.coinjoins:
+            cj_block_heights[cj.txid] = cj.block_height
+            for p in cj.participants:
+                role = getattr(p, 'role', 'unknown')
+                client = getattr(p, 'client', None)
+
+                for inp in getattr(p, 'inputs', []):
+                    output_info.setdefault((inp.txid, inp.vout), {})["spent_in"] = cj.txid
+
+                for label, out_type in [("cj_output", "coinjoin"), ("change_output", "change")]:
+                    out = getattr(p, label, None)
+                    if out:
+                        key = (cj.txid, out.n)
+                        output_info[key] = {
+                            "addr": self.get_address(out),
+                            "role": role,
+                            "type": out_type,
+                            "client": client,
+                            "spent_in": output_info.get(key, {}).get("spent_in")
+                        }
+                        self.output_to_addr[key] = output_info[key]["addr"]
+
+        # Sort CoinJoin txs by block height (unconfirmed => float('inf'))
+        cj_sorted = sorted(
+            self.cj_txids,
+            key=lambda txid: (
+            cj_block_heights.get(txid) if cj_block_heights.get(txid) is not None else float('inf'), txid)
+        )
+        x_map = {txid: 200 * i for i, txid in enumerate(cj_sorted)}
         Y = 120
-        for idx, txid in enumerate(cj_sorted):
-            y = [0, -Y, Y][idx % 3]
-            positions[txid] = {'x': x_map[txid], 'y': y}
-            
-        max_cj_y = max(abs(positions[txid]['y']) for txid in cj_sorted) if cj_sorted else 0
-        
-        # Position for change outputs - below all CoinJoin nodes
+        positions = {}
+
+        for i, txid in enumerate(cj_sorted):
+            y = [0, -Y, Y][i % 3]
+            positions[txid] = {"x": x_map[txid], "y": y}
+
+        max_cj_y = max(abs(pos["y"]) for pos in positions.values()) if positions else 0
         change_y_base = max_cj_y + 300
-        
-        # Position for other address nodes - below change outputs
         addr_y_base = change_y_base + 200
-        
-        # Tracking offsets to prevent overlaps
-        change_offsets = {}
-        addr_offsets = {}
-        
-        # First handle change outputs
-        for (txid, vout_n), info in output_roles.items():
-            spender = output_spent.get((txid, vout_n))
-            # Skip if this output is spent in another CoinJoin
-            if spender and spender[0] in block_heights:
-                continue
-                
-            # If this is a change output
-            if info.get('is_change', False) or info.get('type', '') == 'change':
-                if txid not in cj_nodes:
-                    continue
-                    
-                addr = self.output_to_addr.get((txid, vout_n))
-                if not addr:
-                    continue
-                    
-                # Position the change below its CoinJoin
-                cj_pos = positions.get(txid, {'x': 0, 'y': 0})
-                
-                # Get horizontal position based on parent CoinJoin
-                x_base = cj_pos['x']
-                
-                # Add some random jitter to x position (+/- 50 pixels)
-                import random
-                x_jitter = x_base + random.uniform(-50, 50)
-                
-                # Calculate vertical position with offset to prevent overlaps
-                txid_offset = change_offsets.setdefault(txid, 0)
-                change_offsets[txid] += 1
-                
-                # Space change nodes vertically
-                y_jitter = change_y_base + (txid_offset * 50)
-                
-                positions[addr] = {'x': x_jitter, 'y': y_jitter}
-        
-        # Then handle all other address nodes (that are not change and not spent in other CJs)
-        for (txid, vout_n), info in output_roles.items():
-            spender = output_spent.get((txid, vout_n))
-            # Skip if this output is spent in another CoinJoin
-            if spender and spender[0] in block_heights:
-                continue
-                
-            # Skip if this is a change output (already handled)
-            if info.get('is_change', False) or info.get('type', '') == 'change':
-                continue
-                
-            if txid not in cj_nodes:
-                continue
-                
-            addr = self.output_to_addr.get((txid, vout_n))
-            if not addr:
-                continue
-                
-            # Position the address below its CoinJoin
-            cj_pos = positions.get(txid, {'x': 0, 'y': 0})
-            
-            # Get horizontal position based on parent CoinJoin
-            x_base = cj_pos['x']
-            
-            # Add some random jitter to x position (+/- 80 pixels)
-            import random
-            x_jitter = x_base + random.uniform(-80, 80)
-            
-            # Calculate vertical position with offset to prevent overlaps
-            txid_offset = addr_offsets.setdefault(txid, 0)
-            addr_offsets[txid] += 1
-            
-            # Space address nodes vertically
-            y_jitter = addr_y_base + (txid_offset * 40)
-            
-            positions[addr] = {'x': x_jitter, 'y': y_jitter}
-        
+
+        change_offsets = defaultdict(int)
+        addr_offsets = defaultdict(int)
+
+        # Deterministic x-offset jitter
+        def _jitter(base: float, span: float, seed: str) -> float:
+            h = hash(seed) & 0xFFFFFFFF
+            return base + span * ((h % 1000) / 500.0 - 1.0)
+
+        for (txid, vout), meta in output_info.items():
+            addr = meta.get("addr")
+            if not addr or addr in positions:
+                continue  # skip already placed or unknown
+
+            spent_in = meta.get("spent_in")
+            if spent_in in self.cj_txids:
+                continue  # this output was used in another CJ ⇒ no visual node
+
+            parent_x = positions.get(txid, {"x": 0})["x"]
+            y_base = change_y_base if meta["type"] == "change" else addr_y_base
+            offset_dict = change_offsets if meta["type"] == "change" else addr_offsets
+
+            offset = offset_dict[txid]
+            offset_dict[txid] += 1
+
+            positions[addr] = {
+                "x": _jitter(parent_x, 50 if meta["type"] == "change" else 80, addr),
+                "y": y_base + offset * (50 if meta["type"] == "change" else 40)
+            }
+
         self.positions = positions
-    
+
     def generate_vis_network(self, height="750px", width="100%"):
         """
         Generate a pyvis Network object for visualization.
@@ -561,7 +463,7 @@ class CoinJoinGraphBuilder:
                 }
               },
               "physics": {
-                "enabled": true,
+                "enabled": false,
                 "barnesHut": {
                   "gravitationalConstant": -2000,
                   "centralGravity": 0.1,

@@ -332,6 +332,7 @@ class CoinJoin:
         
         return result
 
+
 # Visualization utility for CoinJoin model
 def generate_coinjoin_flow_vis_graph(cj_objs, client_roles=None, show_changes=True):
     """

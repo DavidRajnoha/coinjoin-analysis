@@ -12,6 +12,7 @@ Functions
 - ``generate_comparison_data``     – high‑level, TXID‑centric comparison.
 - ``generate_object_comparison``   – deep comparison using ``CoinJoin`` objects.
 - ``generate_coinjoin_breakdown``  – rich per‑transaction breakdown helper.
+- ``compare_coinjoin_chains``      – chain-level comparison.
 
 Every function returns plain ``dict`` / ``list`` structures so that callers can
 easily serialise the results to JSON, feed them into Pandas, or render them
@@ -25,9 +26,11 @@ __all__ = [
     "generate_comparison_data",
     "generate_object_comparison",
     "generate_coinjoin_breakdown",
+    "compare_coinjoin_chains",
 ]
 
 from joinmarket.common.coinjoin_model import CoinJoin
+from joinmarket.common.coinjoin_chain import CoinjoinChain
 
 
 # ---------------------------------------------------------------------------
@@ -240,6 +243,103 @@ def compare_coinjoin_objects(bb, wb, *, detailed: bool = False) -> Dict[str, Any
 
     return result
 
+
+
+# ---------------------------------------------------------------------------
+#  Chain-level comparison
+# ---------------------------------------------------------------------------
+
+def compare_coinjoin_chains(
+    blackbox_chains: List[CoinjoinChain],
+    whitebox_chains: List[CoinjoinChain]
+) -> Dict[str, Any]:
+    """Compare lists of CoinjoinChain objects from blackbox and whitebox analyses.
+
+    Identifies matching chains based on shared CoinJoin TXIDs and provides
+    detailed comparison for each matched pair, as well as lists of unmatched chains.
+
+    Returns:
+        A dictionary containing:
+        - 'total_blackbox_chains': Count of blackbox chains.
+        - 'total_whitebox_chains': Count of whitebox chains.
+        - 'matched_chain_pairs': List of dicts, each detailing a matched pair:
+            - 'blackbox_chain_id': ID of the blackbox chain.
+            - 'whitebox_chain_id': ID of the whitebox chain.
+            - 'blackbox_txids': List of TXIDs in the blackbox chain.
+            - 'whitebox_txids': List of TXIDs in the whitebox chain.
+            - 'common_txids': List of TXIDs shared by both chains.
+            - 'only_blackbox_txids': TXIDs present only in the blackbox chain.
+            - 'only_whitebox_txids': TXIDs present only in the whitebox chain.
+            - 'similarity_score': Jaccard index of the TXID sets.
+            - 'is_full_match': True if chains are identical in TXID content.
+        - 'unmatched_blackbox_chain_ids': List of IDs of blackbox chains with no match.
+        - 'unmatched_whitebox_chain_ids': List of IDs of whitebox chains with no match.
+        - 'num_matched_pairs': Total number of matched pairs found.
+        - 'num_fully_matched_pairs': Number of pairs that are a full match.
+        - 'num_partially_matched_pairs': Number of pairs that are a partial match.
+    """
+    matched_pairs_details: List[Dict[str, Any]] = []
+    processed_bb_chain_ids: Set[str] = set()
+    processed_wb_chain_ids: Set[str] = set()
+
+    potential_matches: List[Tuple[float, CoinjoinChain, CoinjoinChain, Set[str], Set[str], Set[str]]] = []
+
+    for bb_chain in blackbox_chains:
+        bb_txids = {cj.txid for cj in bb_chain.coinjoins}
+        for wb_chain in whitebox_chains:
+            wb_txids = {cj.txid for cj in wb_chain.coinjoins}
+
+            intersection = bb_txids.intersection(wb_txids)
+            union = bb_txids.union(wb_txids)
+
+            if not union:  # Both chains are empty of coinjoins
+                similarity = 1.0 if not bb_txids and not wb_txids else 0.0
+            else:
+                similarity = len(intersection) / len(union)
+            
+            if similarity > 0: # Consider any overlap as a potential match
+                potential_matches.append((similarity, bb_chain, wb_chain, bb_txids, wb_txids, intersection))
+
+    # Sort by similarity (desc), then by blackbox chain ID (asc) for determinism
+    potential_matches.sort(key=lambda x: (-x[0], x[1].id))
+
+    for similarity, bb_chain, wb_chain, bb_txids, wb_txids, intersection_txids in potential_matches:
+        if bb_chain.id not in processed_bb_chain_ids and wb_chain.id not in processed_wb_chain_ids:
+            only_blackbox_txids = sorted(list(bb_txids - wb_txids))
+            only_whitebox_txids = sorted(list(wb_txids - intersection_txids)) # Corrected: wb_txids - intersection_txids
+            
+            is_full_match = not only_blackbox_txids and not only_whitebox_txids
+
+            matched_pairs_details.append({
+                'blackbox_chain_id': bb_chain.id,
+                'whitebox_chain_id': wb_chain.id,
+                'blackbox_txids': sorted(list(bb_txids)),
+                'whitebox_txids': sorted(list(wb_txids)),
+                'common_txids': sorted(list(intersection_txids)),
+                'only_blackbox_txids': only_blackbox_txids,
+                'only_whitebox_txids': only_whitebox_txids,
+                'similarity_score': round(similarity, 4),
+                'is_full_match': is_full_match
+            })
+            processed_bb_chain_ids.add(bb_chain.id)
+            processed_wb_chain_ids.add(wb_chain.id)
+
+    unmatched_bb_ids = sorted([chain.id for chain in blackbox_chains if chain.id not in processed_bb_chain_ids])
+    unmatched_wb_ids = sorted([chain.id for chain in whitebox_chains if chain.id not in processed_wb_chain_ids])
+
+    num_fully_matched = sum(1 for p in matched_pairs_details if p['is_full_match'])
+    num_partially_matched = len(matched_pairs_details) - num_fully_matched
+
+    return {
+        'total_blackbox_chains': len(blackbox_chains),
+        'total_whitebox_chains': len(whitebox_chains),
+        'matched_chain_pairs': matched_pairs_details,
+        'unmatched_blackbox_chain_ids': unmatched_bb_ids,
+        'unmatched_whitebox_chain_ids': unmatched_wb_ids,
+        'num_matched_pairs': len(matched_pairs_details),
+        'num_fully_matched_pairs': num_fully_matched,
+        'num_partially_matched_pairs': num_partially_matched
+    }
 
 
 # ---------------------------------------------------------------------------

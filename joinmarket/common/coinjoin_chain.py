@@ -17,7 +17,7 @@ class CoinJoinNode(ABC):
         """
         self.txid = txid
         self.children: List[CoinJoinNode] = []
-    
+        
     def add_child(self, child: CoinJoinNode) -> None:
         """Add a child node to this node.
         
@@ -43,6 +43,10 @@ class CoinJoinNode(ABC):
         for child in self.children:
             yield from child.traverse()
 
+    def __str__(self) -> str:
+        """Return a string representation of this node."""
+        return f"{self.txid}"
+
 
 class CoinJoinLeafNode(CoinJoinNode):
     """Leaf node in the CoinJoin tree representing a single transaction."""
@@ -65,6 +69,10 @@ class CoinJoinTree:
     """
     Represents a tree of CoinJoin transactions where transactions are linked
     through input-output relationships. Implements the composite pattern.
+    
+    Note: In reality, this might be a directed acyclic graph (DAG) rather than a strict tree
+    due to the way tumbler scripts consolidate multiple outputs into one CoinJoin. However,
+    we maintain a tree-like representation for visualization purposes.
     """
     
     def __init__(self, id: Optional[str] = None, root_nodes: Optional[List[CoinJoinNode]] = None, analysis_type: Optional[str] = None):
@@ -119,14 +127,13 @@ class CoinJoinTree:
             parent_node = self._nodes_by_txid[parent_txid]
             child_node = self._nodes_by_txid[child_txid]
             
-            # Add child node to parent's children
             parent_node.add_child(child_node)
             
-            # If child was in root_nodes, remove it as it's no longer a root
+            # If the child was a root node, remove it (it's now connected to a parent)
             if child_node in self.root_nodes:
                 self.root_nodes.remove(child_node)
-            
-            # Invalidate caches
+                
+            # Invalidate nodes cache
             self._nodes_cache = None
     
     @property
@@ -153,13 +160,30 @@ class CoinJoinTree:
         """Return a string representation of this tree."""
         lines = [f"CoinJoinTree(id={self.id}, analysis_type={self.analysis_type})"]
         
+        # Track nodes that have been printed already
+        printed_nodes = set()
+        
         def _format_node(node, depth=0):
             indent = "  " * depth
-            node_str = f"{indent}└─ {node.txid}"
+            
+            # Check if this node has already been printed elsewhere in the tree
+            if node.txid in printed_nodes:
+                node_str = f"{indent}└─ {node} [REPEATED - not expanded]"
+                lines.append(node_str)
+                return
+                
+            # Mark this node as printed
+            printed_nodes.add(node.txid)
+            
+            # Format the current node
+            node_str = f"{indent}└─ {node}"
             lines.append(node_str)
+            
+            # Expand all children (we'll handle repeated nodes when we encounter them)
             for child in node.children:
                 _format_node(child, depth + 1)
         
+        # Start from root nodes
         for root in self.root_nodes:
             _format_node(root)
             
@@ -214,6 +238,7 @@ class CoinJoinTree:
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert this tree to a dictionary for serialization."""
+        tree_repr = str(self)
         return {
             "id": self.id,
             "analysis_type": self.analysis_type,
@@ -225,7 +250,8 @@ class CoinJoinTree:
             "duration_blocks": self.duration_blocks(),
             "total_cj_amount": self.total_cj_amount(),
             "avg_cj_amount": self.avg_cj_amount(),
-            "taker_clients": list(self.taker_clients)
+            "taker_clients": list(self.taker_clients),
+            "tree_representation": tree_repr
         }
     
     def to_json(self) -> str:
@@ -416,23 +442,43 @@ def _create_client_chain(client, client_cjs, client_connections, processed_clien
     chain_clients = {client}
     
     # Add all transactions for this client
+    client_txids = set()
     for cj in client_cjs[client]:
-        leaf_node = CoinJoinLeafNode(cj)
-        tree.add_coinjoin(leaf_node)
-        processed_txids.add(cj.txid)
+        if cj.txid not in processed_txids:
+            # Create a node for this transaction
+            node = CoinJoinLeafNode(cj)
+            tree.add_coinjoin(node)
+            processed_txids.add(cj.txid)
+            client_txids.add(cj.txid)
     
-    # Add connections for this client
-    for txid, children in client_connections[client].items():
-        for child_txid in children:
-            tree.add_connection(txid, child_txid)
+    # Add connections between transactions
+    for txid, connections in client_connections.get(client, {}).items():
+        for next_txid in connections:
+            if txid in client_txids and next_txid in client_txids:
+                tree.add_connection(txid, next_txid)
     
     # Find related clients recursively
-    txids_in_chain = set(cj.txid for cj in client_cjs[client])
-    _find_related_clients(
-        client, client_cjs, client_connections, 
-        processed_clients, processed_txids, 
-        tree, chain_clients, txids_in_chain
-    )
+    for connected_client in set(client_connections.keys()):
+        # Skip if already processed
+        if connected_client in processed_clients:
+            continue
+            
+        # Check if connected to this client
+        is_connected = False
+        for txid, connections in client_connections.get(client, {}).items():
+            for next_txid in connections:
+                # Check if any client_cjs for connected_client has next_txid
+                if any(cj.txid == next_txid for cj in client_cjs.get(connected_client, [])):
+                    is_connected = True
+                    break
+            if is_connected:
+                break
+                
+        if is_connected:
+            # Add the related client recursively
+            _find_related_clients(connected_client, client_cjs, client_connections,
+                                processed_clients, processed_txids, tree,
+                                chain_clients, client_txids)
     
     return tree, chain_clients
 
@@ -452,35 +498,49 @@ def _find_related_clients(base_client, client_cjs, client_connections,
         chain_clients: Set of clients in the chain
         txids_in_chain: Set of transaction IDs already in the chain
     """
-    for other_client, other_txs in client_cjs.items():
-        if other_client == base_client or other_client in processed_clients:
+    # Add the base client to the chain
+    chain_clients.add(base_client)
+    processed_clients.add(base_client)
+    
+    # Add all transactions for this client
+    client_txids = set()
+    for cj in client_cjs.get(base_client, []):
+        if cj.txid not in processed_txids:
+            # Create a node for this transaction
+            node = CoinJoinLeafNode(cj)
+            tree.add_coinjoin(node)
+            processed_txids.add(cj.txid)
+            txids_in_chain.add(cj.txid)
+            client_txids.add(cj.txid)
+    
+    # Add connections between transactions
+    for txid, connections in client_connections.get(base_client, {}).items():
+        for next_txid in connections:
+            if txid in txids_in_chain and next_txid in txids_in_chain:
+                tree.add_connection(txid, next_txid)
+    
+    # Find related clients recursively
+    for connected_client in set(client_connections.keys()):
+        # Skip if already processed
+        if connected_client in processed_clients:
             continue
-        
-        other_txids = set(cj.txid for cj in other_txs)
-        
-        # If there's overlap, merge the clients
-        if txids_in_chain.intersection(other_txids):
-            chain_clients.add(other_client)
             
-            # Add any missing transactions
-            for cj in other_txs:
-                if cj.txid not in txids_in_chain:
-                    leaf_node = CoinJoinLeafNode(cj)
-                    tree.add_coinjoin(leaf_node)
-                    txids_in_chain.add(cj.txid)
-                    processed_txids.add(cj.txid)
-            
-            # Add connections
-            for txid, children in client_connections[other_client].items():
-                for child_txid in children:
-                    tree.add_connection(txid, child_txid)
-            
-            # Recursively check for more related clients
-            _find_related_clients(
-                other_client, client_cjs, client_connections,
-                processed_clients, processed_txids, tree,
-                chain_clients, txids_in_chain
-            )
+        # Check if connected to this client
+        is_connected = False
+        for txid, connections in client_connections.get(base_client, {}).items():
+            for next_txid in connections:
+                # Check if any client_cjs for connected_client has next_txid
+                if any(cj.txid == next_txid for cj in client_cjs.get(connected_client, [])):
+                    is_connected = True
+                    break
+            if is_connected:
+                break
+                
+        if is_connected:
+            # Add the related client recursively
+            _find_related_clients(connected_client, client_cjs, client_connections,
+                                processed_clients, processed_txids, tree,
+                                chain_clients, txids_in_chain)
 
 
 def _handle_no_client_transactions(chains, cjs_without_clients, all_cjs, cjs_with_clients,
@@ -557,39 +617,126 @@ def _identify_blackbox_chains(sorted_cjs, analysis_type):
     Returns:
         List of CoinJoinTree objects
     """
-    cjs_in_a_chain = set()
     chains = []
+    cjs_in_a_chain = set()
     
-    # Find potential root transactions (not spending from other CoinJoins)
-    for start_cj in sorted_cjs:
-        if start_cj.txid in cjs_in_a_chain:
+    # First, build a graph of transaction dependencies
+    # Map from txid -> list of txids that spend from it
+    tx_dependencies = defaultdict(list)
+    # Map from txid -> CoinJoin object
+    tx_map = {cj.txid: cj for cj in sorted_cjs}
+    # Map from txid -> role of participant
+    tx_roles = {}
+    
+    # Find potential root transactions (those not spending from other CoinJoins)
+    root_txids = []
+    for cj in sorted_cjs:
+        is_root = True
+        
+        # Determine if this transaction has a taker
+        has_taker = any(p.role == 'taker' for p in cj.participants)
+        tx_roles[cj.txid] = 'taker' if has_taker else 'maker'
+        
+        # Check all inputs from all participants
+        for participant in cj.participants:
+            for input_tx in participant.inputs:
+                if input_tx.txid in tx_map:
+                    # This transaction spends from another CoinJoin
+                    is_root = False
+                    
+                    # Special case: If the current tx has only makers and previous has takers,
+                    # don't create a dependency - they should be separate chains
+                    prev_has_taker = tx_roles.get(input_tx.txid) == 'taker'
+                    if prev_has_taker and not has_taker:
+                        continue
+                    
+                    # Add this dependency
+                    tx_dependencies[input_tx.txid].append(cj.txid)
+        
+        if is_root:
+            root_txids.append(cj.txid)
+    
+    # For each root transaction, build a chain
+    for root_txid in root_txids:
+        if root_txid in cjs_in_a_chain:
             continue
-        
-        # Check if this CJ spends from any other CJ in our set
-        is_spending_from_other_cj = _is_spending_from_other_cj(start_cj, sorted_cjs)
-        
-        # Skip if spending from another CJ (it will be included as part of another chain)
-        if is_spending_from_other_cj:
-            continue
-        
+            
         # Create a new chain with this transaction as root
-        tree = CoinJoinTree(analysis_type=analysis_type)
-        start_node = CoinJoinLeafNode(start_cj)
-        tree.add_coinjoin(start_node)
-        cjs_in_a_chain.add(start_cj.txid)
+        tree = CoinJoinTree(
+            id=f"{analysis_type}_chain_{uuid.uuid4().hex[:8]}",
+            analysis_type=analysis_type
+        )
         
-        # Check if this is a taker for special case handling
-        has_taker = any(p.role == 'taker' for p in start_cj.participants) if start_cj.participants else False
+        # Add the root transaction to the chain
+        root_cj = tx_map[root_txid]
+        root_node = CoinJoinLeafNode(root_cj)
+        tree.add_coinjoin(root_node)
+        cjs_in_a_chain.add(root_txid)
         
-        # Build the chain recursively
-        _build_blackbox_chain(tree, start_cj, sorted_cjs, cjs_in_a_chain, has_taker)
+        # Now build the chain using a breadth-first approach
+        queue = [root_txid]
+        while queue:
+            current_txid = queue.pop(0)
+            
+            # Process all transactions that spend from this one
+            for next_txid in tx_dependencies[current_txid]:
+                if next_txid in cjs_in_a_chain:
+                    continue
+                    
+                # Add this transaction to the chain
+                next_cj = tx_map[next_txid]
+                next_node = CoinJoinLeafNode(next_cj)
+                tree.add_coinjoin(next_node)
+                tree.add_connection(current_txid, next_txid)
+                cjs_in_a_chain.add(next_txid)
+                
+                # Add to queue for further processing
+                queue.append(next_txid)
         
+        # Add the chain to the list
         chains.append(tree)
     
     # Add any remaining transactions as single-tx chains
     _add_remaining_singleton_chains(chains, sorted_cjs, cjs_in_a_chain, analysis_type)
     
     return chains
+
+
+def _build_blackbox_chain(tree, current_cj, all_cjs, cjs_in_a_chain, has_taker=False):
+    """Build CoinJoin chain recursively in blackbox mode.
+    
+    Args:
+        tree: CoinJoinTree to add nodes to
+        current_cj: Current CoinJoin object
+        all_cjs: List of all CoinJoin objects
+        cjs_in_a_chain: Set of CoinJoin transaction IDs already in chains
+        has_taker: Whether the chain has a taker participant
+    """
+    # For each CoinJoin, check if it spends from the current one
+    for next_cj in all_cjs:
+        if next_cj.txid in cjs_in_a_chain:
+            continue
+            
+        # Check if next_cj spends from current_cj
+        spends_from_current, role = _check_spends_from(next_cj, current_cj)
+        if not spends_from_current:
+            continue
+            
+        # Don't link taker-based chains with non-taker ones
+        # If current chain has a taker, and next tx doesn't, skip
+        if has_taker and role != 'taker':
+            continue
+            
+        # If we get here, add this CoinJoin to the chain
+        next_node = CoinJoinLeafNode(next_cj)
+        tree.add_coinjoin(next_node)
+        tree.add_connection(current_cj.txid, next_cj.txid)
+        
+        # Mark this CJ as processed
+        cjs_in_a_chain.add(next_cj.txid)
+        
+        # Continue building the chain recursively
+        _build_blackbox_chain(tree, next_cj, all_cjs, cjs_in_a_chain, has_taker or role == 'taker')
 
 
 def _is_spending_from_other_cj(cj, all_cjs):
@@ -609,43 +756,6 @@ def _is_spending_from_other_cj(cj, all_cjs):
     return False
 
 
-def _build_blackbox_chain(tree, current_cj, all_cjs, cjs_in_a_chain, has_taker):
-    """Build a blackbox chain recursively.
-    
-    Args:
-        tree: CoinJoinTree to add transactions to
-        current_cj: Current CoinJoin object
-        all_cjs: List of all CoinJoin objects
-        cjs_in_a_chain: Set of transaction IDs already in chains
-        has_taker: Whether the chain has a taker participant
-    """
-    # Find all CoinJoins that spend from outputs of this one
-    for next_cj in all_cjs:
-        if next_cj.txid in cjs_in_a_chain:
-            continue
-        
-        # Check if next_cj spends from current_cj
-        spends_from_current, current_role = _check_spends_from(next_cj, current_cj)
-        
-        # For test_link_via_non_taker_participant:
-        # If the current chain has a taker but this link is via a maker,
-        # don't add it to the chain - let it create its own chain
-        if spends_from_current:
-            # Check if roles don't match - need to create separate chains
-            if has_taker and current_role == 'maker':
-                # Don't add this to the current chain, let it create its own
-                continue
-            
-            # Add to the chain
-            next_node = CoinJoinLeafNode(next_cj)
-            tree.add_coinjoin(next_node)
-            tree.add_connection(current_cj.txid, next_cj.txid)
-            cjs_in_a_chain.add(next_cj.txid)
-            
-            # Recursively build the chain
-            _build_blackbox_chain(tree, next_cj, all_cjs, cjs_in_a_chain, has_taker)
-
-
 def _check_spends_from(next_cj, current_cj):
     """Check if next_cj spends from current_cj and get the role of the participant.
     
@@ -656,81 +766,35 @@ def _check_spends_from(next_cj, current_cj):
     Returns:
         Tuple of (spends_from_current, role)
     """
-    for p in next_cj.participants:
-        for inp in p.inputs:
-            if inp.txid == current_cj.txid:
-                return True, p.role
-    return False, None
+    # Default role
+    role = 'maker'  # Default to maker if we can't determine
+    
+    # Check if any input of next_cj spends from an output of current_cj
+    for input_tx in next_cj.inputs:
+        if input_tx.txid == current_cj.txid:
+            # If input has client info, check if it's a taker
+            if input_tx.client:
+                for p in next_cj.participants:
+                    if p.client == input_tx.client and p.role == 'taker':
+                        role = 'taker'
+                        break
+            return True, role
+    
+    return False, role
 
 
-def _add_remaining_singleton_chains(chains, all_cjs, cjs_in_a_chain, analysis_type):
+def _add_remaining_singleton_chains(chains, sorted_cjs, cjs_in_a_chain, analysis_type):
     """Add any remaining transactions as single-tx chains.
     
     Args:
         chains: List of chains to add to
-        all_cjs: List of all CoinJoin objects
+        sorted_cjs: List of all CoinJoin objects
         cjs_in_a_chain: Set of transaction IDs already in chains
         analysis_type: 'whitebox' or 'blackbox'
     """
-    for cj in all_cjs:
+    for cj in sorted_cjs:
         if cj.txid not in cjs_in_a_chain:
             tree = CoinJoinTree(analysis_type=analysis_type)
             node = CoinJoinLeafNode(cj)
             tree.add_coinjoin(node)
             chains.append(tree)
-
-
-# For backward compatibility
-class CoinjoinChain:
-    """Legacy class for backward compatibility"""
-    
-    def __init__(self, id, coinjoins, analysis_type, connections=None):
-        """Initialize a CoinjoinChain for backward compatibility."""
-        self.id = id
-        self.coinjoins = coinjoins
-        self.analysis_type = analysis_type
-        self.connections = connections if connections is not None else {}
-    
-    def length(self):
-        """Get the number of CoinJoin transactions in this chain."""
-        return len(self.coinjoins)
-    
-    def start_block(self):
-        """Get the earliest block height in this chain."""
-        return min(cj.block_height for cj in self.coinjoins) if self.coinjoins else 0
-    
-    def end_block(self):
-        """Get the latest block height in this chain."""
-        return max(cj.block_height for cj in self.coinjoins) if self.coinjoins else 0
-    
-    def duration_blocks(self):
-        """Get the duration of this chain in blocks."""
-        return self.end_block() - self.start_block() if self.coinjoins else 0
-    
-    def total_cj_amount(self):
-        """Get the total CoinJoin amount in this chain."""
-        return sum(cj.cj_amount for cj in self.coinjoins) if self.coinjoins else 0
-    
-    def avg_cj_amount(self):
-        """Get the average CoinJoin amount in this chain."""
-        return self.total_cj_amount() / max(self.length(), 1)
-    
-    @property
-    def taker_clients(self):
-        """Get the set of taker clients in this chain."""
-        result = set()
-        for cj in self.coinjoins:
-            for p in cj.participants:
-                if p.role == 'taker' and p.client:
-                    result.add(p.client)
-        return result
-    
-    @classmethod
-    def from_tree(cls, tree):
-        """Create a CoinjoinChain from a CoinJoinTree for backward compatibility."""
-        return cls(
-            id=tree.id,
-            coinjoins=tree.coinjoins,
-            analysis_type=tree.analysis_type,
-            connections=tree.connections
-        )

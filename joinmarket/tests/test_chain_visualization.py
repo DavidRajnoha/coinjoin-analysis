@@ -7,7 +7,6 @@ works correctly with report generation.
 import os
 from joinmarket.common.coinjoin_model import CoinJoin, CoinJoinParticipant, TxInput, TxOutput
 from joinmarket.common.coinjoin_chain import identify_coinjoin_chains, CoinJoinTree
-from joinmarket.unified_report.create_report import generate_unified_report
 
 def create_test_data():
     """Create a simple test dataset with branching chains"""

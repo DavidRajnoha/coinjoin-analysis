@@ -30,7 +30,7 @@ __all__ = [
 ]
 
 from joinmarket.common.coinjoin_model import CoinJoin
-from joinmarket.common.coinjoin_chain import CoinjoinChain
+from joinmarket.common.coinjoin_chain import CoinJoinTree
 
 
 # ---------------------------------------------------------------------------
@@ -250,10 +250,10 @@ def compare_coinjoin_objects(bb, wb, *, detailed: bool = False) -> Dict[str, Any
 # ---------------------------------------------------------------------------
 
 def compare_coinjoin_chains(
-    blackbox_chains: List[CoinjoinChain],
-    whitebox_chains: List[CoinjoinChain]
+    blackbox_chains: List[CoinJoinTree],
+    whitebox_chains: List[CoinJoinTree]
 ) -> Dict[str, Any]:
-    """Compare lists of CoinjoinChain objects from blackbox and whitebox analyses.
+    """Compare lists of CoinJoinTree objects from blackbox and whitebox analyses.
 
     Identifies matching chains based on shared CoinJoin TXIDs and provides
     detailed comparison for each matched pair, as well as lists of unmatched chains.
@@ -282,12 +282,12 @@ def compare_coinjoin_chains(
     processed_bb_chain_ids: Set[str] = set()
     processed_wb_chain_ids: Set[str] = set()
 
-    potential_matches: List[Tuple[float, CoinjoinChain, CoinjoinChain, Set[str], Set[str], Set[str]]] = []
+    potential_matches: List[Tuple[float, CoinJoinTree, CoinJoinTree, Set[str], Set[str], Set[str]]] = []
 
     for bb_chain in blackbox_chains:
-        bb_txids = {cj.txid for cj in bb_chain.coinjoins}
+        bb_txids = {node.txid for node in bb_chain.nodes}
         for wb_chain in whitebox_chains:
-            wb_txids = {cj.txid for cj in wb_chain.coinjoins}
+            wb_txids = {node.txid for node in wb_chain.nodes}
 
             intersection = bb_txids.intersection(wb_txids)
             union = bb_txids.union(wb_txids)
@@ -306,7 +306,7 @@ def compare_coinjoin_chains(
     for similarity, bb_chain, wb_chain, bb_txids, wb_txids, intersection_txids in potential_matches:
         if bb_chain.id not in processed_bb_chain_ids and wb_chain.id not in processed_wb_chain_ids:
             only_blackbox_txids = sorted(list(bb_txids - wb_txids))
-            only_whitebox_txids = sorted(list(wb_txids - intersection_txids)) # Corrected: wb_txids - intersection_txids
+            only_whitebox_txids = sorted(list(wb_txids - intersection_txids))
             
             is_full_match = not only_blackbox_txids and not only_whitebox_txids
 

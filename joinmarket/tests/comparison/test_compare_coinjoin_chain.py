@@ -1,7 +1,7 @@
 import pytest
 from typing import List, Optional, Dict, Any
-from joinmarket.common.coinjoin_model import CoinJoin, TxInput, TxOutput, CoinJoinParticipant
-from joinmarket.common.coinjoin_chain import CoinjoinChain
+from joinmarket.common.coinjoin_model import CoinJoin, TxInput, TxOutput
+from joinmarket.common.coinjoin_chain import CoinJoinTree, CoinJoinLeafNode
 from joinmarket.comparison.compare_coinjoin import compare_coinjoin_chains
 
 # Helper function to create mock CoinJoin (simplified for chain testing)
@@ -9,9 +9,13 @@ def _create_cj(txid: str, block_height: int = 0) -> CoinJoin:
     # Minimal CoinJoin for testing chain comparison based on txid
     return CoinJoin(txid=txid, block_height=block_height, participants=[], tx={})
 
-# Helper function to create mock CoinjoinChain
-def _create_chain(id_suffix: str, cjs: List[CoinJoin], analysis_type: str) -> CoinjoinChain:
-    return CoinjoinChain(id=f"{analysis_type}_chain_{id_suffix}", coinjoins=cjs, analysis_type=analysis_type)
+# Helper function to create mock CoinJoinTree
+def _create_chain(id_suffix: str, cjs: List[CoinJoin], analysis_type: str) -> CoinJoinTree:
+    tree = CoinJoinTree(id=f"{analysis_type}_chain_{id_suffix}", analysis_type=analysis_type)
+    for cj in cjs:
+        node = CoinJoinLeafNode(cj)
+        tree.add_coinjoin(node)
+    return tree
 
 # Test Cases
 

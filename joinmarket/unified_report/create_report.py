@@ -107,26 +107,55 @@ def generate_unified_report(
     blackbox_identified_chains = identify_coinjoin_chains(blackbox_cj_objs, 'blackbox')
     whitebox_identified_chains = identify_coinjoin_chains(whitebox_cj_objs, 'whitebox')
 
-    def serialize_cj_chain_for_report(chain_obj):
-        return {
-            "id": chain_obj.id,
-            "analysis_type": chain_obj.analysis_type,
-            "length": chain_obj.length(),
-            "coinjoin_txids": [node.txid for node in chain_obj.nodes],
-            "connections": {txid: children for txid, children in chain_obj.connections.items()},
-            "start_block": chain_obj.start_block(),
-            "end_block": chain_obj.end_block(),
-            "duration_blocks": chain_obj.duration_blocks(),
-            "total_cj_amount": chain_obj.total_cj_amount(),
-            "avg_cj_amount": chain_obj.avg_cj_amount(),
-            "taker_clients": sorted(list(chain_obj.taker_clients))
+    def serialize_cj_chain_for_report(chain, settings, chain_type):
+        """Convert a CoinJoinTree to a format suitable for the report.
+        
+        Args:
+            chain: CoinJoinTree object
+            settings: Settings dictionary
+            chain_type: Type of chain ('whitebox' or 'blackbox')
+            
+        Returns:
+            Dictionary representation of the chain for the report
+        """
+        # Use the nodes property to get unique transactions
+        unique_transactions = chain.nodes
+        
+        chain_data = {
+            "id": chain.id,
+            "analysis_type": chain.analysis_type,
+            "chain_type": chain_type,  # To distinguish whitebox/blackbox chains
+            "length": chain.length(),
+            "transactions": [{
+                "txid": node.txid,
+                "block_height": node.get_coinjoin().block_height,
+                "participants": len(node.get_coinjoin().participants),
+                "amount": node.get_coinjoin().cj_amount
+            } for node in unique_transactions]
         }
+        
+        # Include the tree-like representation
+        if hasattr(chain, 'tree_representation'):
+            chain_data["tree_representation"] = chain.tree_representation
+        else:
+            chain_data["tree_representation"] = str(chain)
+        
+        # Add additional chain statistics
+        chain_data.update({
+            "start_block": chain.start_block(),
+            "end_block": chain.end_block(),
+            "duration_blocks": chain.duration_blocks(),
+            "total_amount": chain.total_cj_amount(),
+            "avg_amount": chain.avg_cj_amount()
+        })
+        
+        return chain_data
 
     report_data['blackbox_identified_chains'] = [
-        serialize_cj_chain_for_report(chain) for chain in blackbox_identified_chains
+        serialize_cj_chain_for_report(chain, {}, 'blackbox') for chain in blackbox_identified_chains
     ]
     report_data['whitebox_identified_chains'] = [
-        serialize_cj_chain_for_report(chain) for chain in whitebox_identified_chains
+        serialize_cj_chain_for_report(chain, {}, 'whitebox') for chain in whitebox_identified_chains
     ]
 
     chain_comparison_summary = compare_coinjoin_chains(blackbox_identified_chains, whitebox_identified_chains)
@@ -346,6 +375,7 @@ def generate_unified_report(
                 <th>Avg CJ Amount (BTC)</th>
                 <th>Taker Client(s)</th>
                 <th>CoinJoin TXIDs</th>
+                <th>Tree Representation</th>
             </tr>
         </thead>
         <tbody>
@@ -356,14 +386,15 @@ def generate_unified_report(
                 <td>{{ chain.start_block }}</td>
                 <td>{{ chain.end_block }}</td>
                 <td>{{ chain.duration_blocks }}</td>
-                <td>{{ "%.8f"|format(chain.total_cj_amount) }}</td>
-                <td>{{ "%.8f"|format(chain.avg_cj_amount) }}</td>
-                <td>{{ chain.taker_clients | join(', ') }}</td>
+                <td>{{ "%.8f"|format(chain.total_amount) }}</td>
+                <td>{{ "%.8f"|format(chain.avg_amount) }}</td>
+                <td>{{ chain.chain_type }}</td>
                 <td>
-                    {% for txid in chain.coinjoin_txids %}
-                        <code>{{ txid }}</code>{% if not loop.last %}, {% endif %}
+                    {% for txid in chain.transactions %}
+                        <code>{{ txid.txid }}</code>{% if not loop.last %}, {% endif %}
                     {% endfor %}
                 </td>
+                <td><pre>{{ chain.tree_representation }}</pre></td>
             </tr>
             {% endfor %}
         </tbody>
@@ -386,6 +417,7 @@ def generate_unified_report(
                 <th>Avg CJ Amount (BTC)</th>
                 <th>Taker Client(s)</th>
                 <th>CoinJoin TXIDs</th>
+                <th>Tree Representation</th>
             </tr>
         </thead>
         <tbody>
@@ -396,14 +428,15 @@ def generate_unified_report(
                 <td>{{ chain.start_block }}</td>
                 <td>{{ chain.end_block }}</td>
                 <td>{{ chain.duration_blocks }}</td>
-                <td>{{ "%.8f"|format(chain.total_cj_amount) }}</td>
-                <td>{{ "%.8f"|format(chain.avg_cj_amount) }}</td>
-                <td>{{ chain.taker_clients | join(', ') }}</td>
+                <td>{{ "%.8f"|format(chain.total_amount) }}</td>
+                <td>{{ "%.8f"|format(chain.avg_amount) }}</td>
+                <td>{{ chain.chain_type }}</td>
                 <td>
-                    {% for txid in chain.coinjoin_txids %}
-                        <code>{{ txid }}</code>{% if not loop.last %}, {% endif %}
+                    {% for txid in chain.transactions %}
+                        <code>{{ txid.txid }}</code>{% if not loop.last %}, {% endif %}
                     {% endfor %}
                 </td>
+                <td><pre>{{ chain.tree_representation }}</pre></td>
             </tr>
             {% endfor %}
         </tbody>

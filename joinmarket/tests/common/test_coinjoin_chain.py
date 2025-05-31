@@ -1,7 +1,9 @@
 import pytest
-from typing import List, Optional, Dict, Any
-from joinmarket.common.coinjoin_model import CoinJoin, TxInput, TxOutput, CoinJoinParticipant
-from joinmarket.common.coinjoin_chain import identify_coinjoin_chains, CoinJoinTree, CoinjoinChain
+from typing import List, Dict, Any, Optional
+from uuid import uuid4
+from joinmarket.common.coinjoin_model import CoinJoin, CoinJoinParticipant, TxInput, TxOutput
+from joinmarket.common.coinjoin_chain import CoinJoinTree, CoinJoinLeafNode, identify_coinjoin_chains
+import json
 
 # Helper function to create mock TxInput
 def _create_tx_input(txid: str, vout: int, value: float, address: Optional[str] = None, client: Optional[str] = None) -> TxInput:
@@ -575,3 +577,70 @@ def test_empty_input():
     
     chains = identify_coinjoin_chains([], 'blackbox')
     assert len(chains) == 0
+
+def test_tree_representation_with_repeated_nodes():
+    """Test that the string representation correctly shows and handles repeated nodes."""
+    # Create a test structure with repeated nodes
+    # tx1 -> tx2 -> tx3
+    #  |      \
+    #  |       \-> tx4
+    #  |            |
+    #  +------------+
+
+    # Create CoinJoin objects
+    cj1 = _create_coinjoin("tx1", 100, [_create_participant([_create_tx_input("prev", 0, 1.0)], _create_tx_output(0, 0.9))])
+    cj2 = _create_coinjoin("tx2", 110, [_create_participant([_create_tx_input("tx1", 0, 0.9)], _create_tx_output(0, 0.8))])
+    cj3 = _create_coinjoin("tx3", 120, [_create_participant([_create_tx_input("tx2", 0, 0.8)], _create_tx_output(0, 0.7))])
+    cj4 = _create_coinjoin("tx4", 130, [_create_participant([_create_tx_input("tx2", 1, 0.5), _create_tx_input("tx1", 1, 0.5)], _create_tx_output(0, 0.9))])
+
+    # Create a tree and add nodes
+    tree = CoinJoinTree(analysis_type="test")
+    
+    # Add CoinJoins
+    node1 = CoinJoinLeafNode(cj1)
+    node2 = CoinJoinLeafNode(cj2)
+    node3 = CoinJoinLeafNode(cj3)
+    node4 = CoinJoinLeafNode(cj4)
+    
+    tree.add_coinjoin(node1)
+    tree.add_coinjoin(node2)
+    tree.add_coinjoin(node3)
+    tree.add_coinjoin(node4)
+    
+    # Add connections to create the DAG structure
+    tree.add_connection("tx1", "tx2")
+    tree.add_connection("tx2", "tx3")
+    tree.add_connection("tx2", "tx4")
+    tree.add_connection("tx1", "tx4")  # This creates a repeated node situation
+    
+    # Get the string representation
+    tree_str = str(tree)
+    
+    # Verify the representation contains the expected elements
+    assert "CoinJoinTree" in tree_str
+    assert "tx1" in tree_str
+    assert "tx2" in tree_str
+    assert "tx3" in tree_str
+    assert "tx4" in tree_str
+    assert "[REPEATED - not expanded]" in tree_str  # This should be present for the repeated node
+    
+    # Check if tx4 is marked as repeated when accessed from tx1 (second time)
+    # We can do this by analyzing the structure of the tree string
+    lines = tree_str.strip().split("\n")
+    
+    # Find the line where tx4 is repeated
+    repeated_line = None
+    for line in lines:
+        if "tx4" in line and "[REPEATED - not expanded]" in line:
+            repeated_line = line
+            break
+            
+    assert repeated_line is not None, "No repeated node found in the representation"
+    
+    # The representation should only show tx3 being expanded once
+    tx3_count = sum(1 for line in lines if "tx3" in line)
+    assert tx3_count == 1, f"tx3 should appear exactly once, found {tx3_count} times"
+    
+    # The node tx4 should appear twice (once as normal, once as repeated)
+    tx4_count = sum(1 for line in lines if "tx4" in line)
+    assert tx4_count == 2, f"tx4 should appear twice (once normal, once repeated), found {tx4_count} times"

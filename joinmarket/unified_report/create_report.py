@@ -111,13 +111,14 @@ def generate_unified_report(
         return {
             "id": chain_obj.id,
             "analysis_type": chain_obj.analysis_type,
-            "length": chain_obj.length,
-            "coinjoin_txids": [cj.txid for cj in chain_obj.coinjoins],
-            "start_block": chain_obj.start_block if chain_obj.coinjoins else None,
-            "end_block": chain_obj.end_block if chain_obj.coinjoins else None,
-            "duration_blocks": chain_obj.duration_blocks if chain_obj.coinjoins else 0,
-            "total_cj_amount": chain_obj.total_cj_amount if chain_obj.coinjoins else 0,
-            "avg_cj_amount": chain_obj.avg_cj_amount if chain_obj.coinjoins else 0,
+            "length": chain_obj.length(),
+            "coinjoin_txids": [node.txid for node in chain_obj.nodes],
+            "connections": {txid: children for txid, children in chain_obj.connections.items()},
+            "start_block": chain_obj.start_block(),
+            "end_block": chain_obj.end_block(),
+            "duration_blocks": chain_obj.duration_blocks(),
+            "total_cj_amount": chain_obj.total_cj_amount(),
+            "avg_cj_amount": chain_obj.avg_cj_amount(),
             "taker_clients": sorted(list(chain_obj.taker_clients))
         }
 

@@ -128,7 +128,7 @@ def solve_joinmarket_sudoku(
 def coinjoin_sudoku( tx : Dict[str, Any],
                      tx_map: Dict[str, Dict[str, Any]],
                      fee_tol: float = 3 * SAT,
-                     maker_gain_max: float = 5 * SAT
+                     maker_gain_max: float = 50 * SAT
                      ) -> List[List[Dict[str, Any]]]:
     """
     All JoinMarket-compatible decompositions – *duplicates removed*.

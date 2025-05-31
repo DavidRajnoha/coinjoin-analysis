@@ -72,18 +72,57 @@ def generate_unified_report(
     obj_comparison_data = generate_object_comparison(blackbox_cj_objs, whitebox_cj_objs, detailed=True)
     report_data['object_comparison'] = obj_comparison_data
 
+    # Add whitebox taker client information to each transaction
+    for tx in obj_comparison_data.get("obj_comparison", []):
+        txid = tx["txid"]
+        
+        # Find the whitebox CoinJoin object for this transaction
+        wb_cj = None
+        for cj in whitebox_cj_objs:
+            if cj.txid == txid:
+                wb_cj = cj
+                break
+        
+        # Add taker client name if found
+        if wb_cj and hasattr(wb_cj, 'participants'):
+            taker_clients = []
+            for participant in wb_cj.participants:
+                if hasattr(participant, 'role') and participant.role == 'taker':
+                    if hasattr(participant, 'client'):
+                        taker_clients.append(participant.client)
+            tx["wb_taker_clients"] = ", ".join(taker_clients) if taker_clients else "None"
+        else:
+            tx["wb_taker_clients"] = "Unknown"
+
     # Aggregate detailed participant breakdowns for unified table
     detailed_participant_breakdown = []
     for tx in obj_comparison_data.get("obj_comparison", []):
+        # Find the whitebox CoinJoin object for this transaction to get taker information
+        wb_cj = None
+        for cj in whitebox_cj_objs:
+            if cj.txid == tx["txid"]:
+                wb_cj = cj
+                break
+                
+        # Get taker information if available
+        taker_client = "Unknown"
+        if wb_cj and hasattr(wb_cj, 'participants'):
+            for participant in wb_cj.participants:
+                if hasattr(participant, 'role') and participant.role == 'taker':
+                    if hasattr(participant, 'client'):
+                        taker_client = participant.client
+                        break
+        
+        # Process each participant
         for part in tx.get("participant_breakdown", []):
             entry = {
                 "txid": tx["txid"],
                 "block_height": tx["block_height"],
                 "bb_sig": str(part["bb_sig"]),
-                "matched": part["matched"],
                 "bb_role": part["bb_role"],
                 "wb_roles": ", ".join(part["wb_roles"]),
                 "role_match": part["role_match"],
+                "taker_client": taker_client
             }
             detailed_participant_breakdown.append(entry)
     report_data['detailed_participant_breakdown'] = detailed_participant_breakdown
@@ -106,6 +145,33 @@ def generate_unified_report(
     # --- CoinJoin Chain Analysis ---
     blackbox_identified_chains = identify_coinjoin_chains(blackbox_cj_objs, 'blackbox')
     whitebox_identified_chains = identify_coinjoin_chains(whitebox_cj_objs, 'whitebox')
+    
+    # Create lists of transaction IDs for comparison
+    all_plain_txids = [cj.txid for cj in blackbox_cj_objs + whitebox_cj_objs]
+    all_plain_txids = sorted(list(set(all_plain_txids)))  # Remove duplicates
+    
+    blackbox_chain_txids = []
+    for chain in blackbox_identified_chains:
+        blackbox_chain_txids.extend([node.txid for node in chain.nodes])
+    blackbox_chain_txids = sorted(list(set(blackbox_chain_txids)))  # Remove duplicates
+    
+    whitebox_chain_txids = []
+    for chain in whitebox_identified_chains:
+        whitebox_chain_txids.extend([node.txid for node in chain.nodes])
+    whitebox_chain_txids = sorted(list(set(whitebox_chain_txids)))  # Remove duplicates
+    
+    # Find transactions that are not attributed in the chains
+    unattributed_in_blackbox = sorted(list(set(all_plain_txids) - set(blackbox_chain_txids)))
+    unattributed_in_whitebox = sorted(list(set(all_plain_txids) - set(whitebox_chain_txids)))
+    
+    # Add these lists to the report data
+    report_data['txid_lists'] = {
+        'all_plain_txids': ', '.join(all_plain_txids),
+        'blackbox_chain_txids': ', '.join(blackbox_chain_txids),
+        'whitebox_chain_txids': ', '.join(whitebox_chain_txids),
+        'unattributed_in_blackbox': ', '.join(unattributed_in_blackbox),
+        'unattributed_in_whitebox': ', '.join(unattributed_in_whitebox)
+    }
 
     def serialize_cj_chain_for_report(chain, settings, chain_type):
         """Convert a CoinJoinTree to a format suitable for the report.
@@ -275,7 +341,6 @@ def generate_unified_report(
     <h2>Object-Level CoinJoin Comparison</h2>
     <div class="stats-boxes">
         <div class="stat-box"><strong>Compared TXs:</strong> {{ report_data.object_comparison.comparison_tx_count }}</div>
-        <div class="stat-box"><strong>Avg. Role Accuracy (in matched):</strong> {{ report_data.object_comparison.role_accuracy_avg }}%</div>
         <div class="stat-box"><strong>Avg. Overall Role Success (all BB):</strong> {{ report_data.object_comparison.overall_role_success_avg }}%</div>
         <div class="stat-box"><strong>Participant Match Rate:</strong> {{ report_data.object_comparison.participant_match_rate }}%</div>
     </div>
@@ -305,54 +370,46 @@ def generate_unified_report(
           <th>BB Participants</th>
           <th>WB Participants</th>
           <th>Matched Participants</th>
-          <th>Role Accuracy</th>
-          <th>Overall Role Success</th>
           <th>BB CJ Amount</th>
           <th>WB CJ Amount</th>
-          <th>BB Fee</th>
-          <th>WB Fee</th>
+          <th>WB Taker Client(s)</th>
         </tr>
       </thead>
       <tbody>
         {% for tx in report_data.object_comparison.obj_comparison %}
-        <tr>
+        <tr{% if tx.participants_bb == 0 %} style="background-color: #ffdddd;"{% endif %}>
           <td><code>{{ tx.txid }}</code></td>
           <td>{{ tx.block_height }}</td>
           <td>{{ tx.participants_bb }}</td>
           <td>{{ tx.participants_wb }}</td>
           <td>{{ tx.matched_participants }}</td>
-          <td>{{ tx.role_accuracy }}%</td>
-          <td>{{ tx.overall_role_success }}%</td>
           <td>{{ "%.8f"|format(tx.blackbox_cj_amount) }} BTC</td>
           <td>{{ "%.8f"|format(tx.whitebox_cj_amount) }} BTC</td>
-          <td>{{ "%.8f"|format(tx.blackbox_fee) }} BTC</td>
-          <td>{{ "%.8f"|format(tx.whitebox_fee) }} BTC</td>
+          <td>{{ tx.wb_taker_clients }}</td>
         </tr>
         {% endfor %}
       </tbody>
     </table>
 
-    <h3>Detailed Participant Role Breakdown (Matched Participants)</h3>
+    <h3>Detailed Participant Role Breakdown</h3>
     <table>
         <thead>
             <tr>
                 <th>TXID</th>
+                <th>Taker Client</th>
                 <th>BB Participant Signature</th>
-                <th>Matched in WB</th>
                 <th>BB Role</th>
                 <th>WB Role(s)</th>
-                <th>Role Match</th>
             </tr>
         </thead>
         <tbody>
             {% for part_detail in report_data.detailed_participant_breakdown %}
             <tr>
                 <td><code>{{ part_detail.txid }}</code></td>
+                <td>{{ part_detail.taker_client }}</td>
                 <td><code>{{ part_detail.bb_sig }}</code></td>
-                <td>{{ part_detail.matched }}</td>
                 <td>{{ part_detail.bb_role }}</td>
-                <td>{{ part_detail.wb_roles }}</td>
-                <td>{{ part_detail.role_match }}</td>
+                <td {% if not part_detail.role_match %}style="background-color: #ffcccc;"{% endif %}>{{ part_detail.wb_roles }}</td>
             </tr>
             {% endfor %}
         </tbody>
@@ -371,10 +428,6 @@ def generate_unified_report(
                 <th>Start Block</th>
                 <th>End Block</th>
                 <th>Duration (Blocks)</th>
-                <th>Total CJ Amount (BTC)</th>
-                <th>Avg CJ Amount (BTC)</th>
-                <th>Taker Client(s)</th>
-                <th>CoinJoin TXIDs</th>
                 <th>Tree Representation</th>
             </tr>
         </thead>
@@ -386,14 +439,6 @@ def generate_unified_report(
                 <td>{{ chain.start_block }}</td>
                 <td>{{ chain.end_block }}</td>
                 <td>{{ chain.duration_blocks }}</td>
-                <td>{{ "%.8f"|format(chain.total_amount) }}</td>
-                <td>{{ "%.8f"|format(chain.avg_amount) }}</td>
-                <td>{{ chain.chain_type }}</td>
-                <td>
-                    {% for txid in chain.transactions %}
-                        <code>{{ txid.txid }}</code>{% if not loop.last %}, {% endif %}
-                    {% endfor %}
-                </td>
                 <td><pre>{{ chain.tree_representation }}</pre></td>
             </tr>
             {% endfor %}
@@ -413,10 +458,6 @@ def generate_unified_report(
                 <th>Start Block</th>
                 <th>End Block</th>
                 <th>Duration (Blocks)</th>
-                <th>Total CJ Amount (BTC)</th>
-                <th>Avg CJ Amount (BTC)</th>
-                <th>Taker Client(s)</th>
-                <th>CoinJoin TXIDs</th>
                 <th>Tree Representation</th>
             </tr>
         </thead>
@@ -428,14 +469,6 @@ def generate_unified_report(
                 <td>{{ chain.start_block }}</td>
                 <td>{{ chain.end_block }}</td>
                 <td>{{ chain.duration_blocks }}</td>
-                <td>{{ "%.8f"|format(chain.total_amount) }}</td>
-                <td>{{ "%.8f"|format(chain.avg_amount) }}</td>
-                <td>{{ chain.chain_type }}</td>
-                <td>
-                    {% for txid in chain.transactions %}
-                        <code>{{ txid.txid }}</code>{% if not loop.last %}, {% endif %}
-                    {% endfor %}
-                </td>
                 <td><pre>{{ chain.tree_representation }}</pre></td>
             </tr>
             {% endfor %}
@@ -512,6 +545,15 @@ def generate_unified_report(
     <p>Chain comparison data is not available.</p>
     {% endif %}
     <!-- End CoinJoin Chain Analysis Section -->
+
+    <h2>TXID Comparison Lists</h2>
+    <div class="stats-boxes">
+        <div class="stat-box"><strong>All Plain TXIDs:</strong> {{ report_data.txid_lists.all_plain_txids }}</div>
+        <div class="stat-box"><strong>Blackbox Chain TXIDs:</strong> {{ report_data.txid_lists.blackbox_chain_txids }}</div>
+        <div class="stat-box"><strong>Whitebox Chain TXIDs:</strong> {{ report_data.txid_lists.whitebox_chain_txids }}</div>
+        <div class="stat-box"><strong>Unattributed in Blackbox:</strong> {{ report_data.txid_lists.unattributed_in_blackbox }}</div>
+        <div class="stat-box"><strong>Unattributed in Whitebox:</strong> {{ report_data.txid_lists.unattributed_in_whitebox }}</div>
+    </div>
 
     {{ blackbox_iframe | safe }}
     {{ whitebox_iframe | safe }}

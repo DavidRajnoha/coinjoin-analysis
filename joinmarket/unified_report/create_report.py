@@ -17,7 +17,8 @@ if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
 from joinmarket.comparison import generate_coinjoin_breakdown, generate_comparison_data, generate_object_comparison, compare_coinjoin_chains
-from joinmarket.common.coinjoin_chain import identify_coinjoin_chains
+from joinmarket.comparison.chain_visualization import generate_colored_chain_comparison
+from joinmarket.common.coinjoin_chain import identify_coinjoin_chains, CoinJoinTree
 
 
 def convert_frozensets(obj):
@@ -226,6 +227,22 @@ def generate_unified_report(
 
     chain_comparison_summary = compare_coinjoin_chains(blackbox_identified_chains, whitebox_identified_chains)
     report_data['chain_comparison_summary'] = convert_frozensets(chain_comparison_summary) # Ensure serializable
+    
+    # Add enhanced chain visualization for matched pairs
+    chain_map = {chain.id: chain for chain in blackbox_identified_chains + whitebox_identified_chains}
+    
+    matched_pairs_details = report_data['chain_comparison_summary'].get('matched_chain_pairs', [])
+    for pair in matched_pairs_details:
+        bb_chain_id = pair['blackbox_chain_id']
+        wb_chain_id = pair['whitebox_chain_id']
+        
+        if bb_chain_id in chain_map and wb_chain_id in chain_map:
+            bb_chain = chain_map[bb_chain_id]
+            wb_chain = chain_map[wb_chain_id]
+            
+            # Generate colored tree comparison
+            pair['colored_tree_comparison'] = generate_colored_chain_comparison(bb_chain, wb_chain)
+    
     # --- End CoinJoin Chain Analysis ---
 
     # Check if visualizations exist
@@ -305,6 +322,7 @@ def generate_unified_report(
       border: 1px solid #ddd;
       padding: 0.5em 0.7em;
       text-align: left;
+      vertical-align: top;
     }
     th {
       background: #f6f8fa;
@@ -321,6 +339,33 @@ def generate_unified_report(
     }
     .visualization-container {
       margin-bottom: 2em;
+    }
+    pre {
+      white-space: pre-wrap;
+      max-width: 100%;
+      overflow-x: auto;
+      margin: 0;
+      padding: 10px;
+      background: #f9f9f9;
+      border-radius: 4px;
+      border: 1px solid #eee;
+    }
+    .tree-comparison {
+      margin-bottom: 1em;
+    }
+    .tree-hierarchy {
+      margin-top: 1em;
+    }
+    .truncated-text {
+      max-width: 200px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .truncated-text:hover {
+      white-space: normal;
+      overflow: visible;
+      max-width: none;
     }
   </style>
 </head>
@@ -495,11 +540,9 @@ def generate_unified_report(
             <tr>
                 <th>Blackbox Chain ID</th>
                 <th>Whitebox Chain ID</th>
-                <th>Common TXIDs</th>
-                <th>Only in Blackbox TXIDs</th>
-                <th>Only in Whitebox TXIDs</th>
                 <th>Similarity Score</th>
                 <th>Full Match?</th>
+                <th>Chain Comparison</th>
             </tr>
         </thead>
         <tbody>
@@ -507,11 +550,26 @@ def generate_unified_report(
             <tr>
                 <td><code>{{ pair.blackbox_chain_id }}</code></td>
                 <td><code>{{ pair.whitebox_chain_id }}</code></td>
-                <td>{{ pair.common_txids | join(', ') | wordwrap(80, true, ',') }}</td>
-                <td>{{ pair.only_blackbox_txids | join(', ') | wordwrap(80, true, ',') }}</td>
-                <td>{{ pair.only_whitebox_txids | join(', ') | wordwrap(80, true, ',') }}</td>
                 <td>{{ "%.4f"|format(pair.similarity_score) }}</td>
                 <td>{{ pair.is_full_match }}</td>
+                <td>
+                    {% if pair.colored_tree_comparison %}
+                        {{ pair.colored_tree_comparison | safe }}
+                    {% else %}
+                        <details>
+                            <summary>Common TXIDs</summary>
+                            <div class="truncated-text">{{ pair.common_txids | join(', ') }}</div>
+                        </details>
+                        <details>
+                            <summary>Only in Blackbox</summary>
+                            <div class="truncated-text">{{ pair.only_blackbox_txids | join(', ') }}</div>
+                        </details>
+                        <details>
+                            <summary>Only in Whitebox</summary>
+                            <div class="truncated-text">{{ pair.only_whitebox_txids | join(', ') }}</div>
+                        </details>
+                    {% endif %}
+                </td>
             </tr>
             {% endfor %}
         </tbody>

@@ -9,8 +9,13 @@ from pathlib import Path
 
 import pandas as pd
 import json
+import numpy as np
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 from typing import List, Dict, Any, Optional
+import matplotlib.pyplot as plt
+import io
+import base64
+from matplotlib.figure import Figure
 
 project_root = str(Path(__file__).parent.parent.parent)
 if project_root not in sys.path:
@@ -128,19 +133,27 @@ def generate_unified_report(
             detailed_participant_breakdown.append(entry)
     report_data['detailed_participant_breakdown'] = detailed_participant_breakdown
 
+    # Helper to compute average maker fee (sum of positive deltas per transaction)
+    def avg_maker_fee(cj_objs):
+        maker_fees = [
+            sum(p.delta for p in getattr(cj, 'participants', []) if getattr(p, 'delta', 0) > 0)
+            for cj in cj_objs
+        ]
+        return round(sum(maker_fees) / max(len(cj_objs), 1), 8)
+
     # Calculate CoinJoin object statistics
     report_data['blackbox_obj_stats'] = {
         'total_transactions': len(blackbox_cj_objs),
         'total_participants': sum(len(cj.participants) for cj in blackbox_cj_objs),
         'avg_participants': round(sum(len(cj.participants) for cj in blackbox_cj_objs) / max(len(blackbox_cj_objs), 1), 2),
-        'avg_fee': round(sum(cj.miner_fee for cj in blackbox_cj_objs if hasattr(cj, 'miner_fee')) / max(len(blackbox_cj_objs), 1), 8),
+        'avg_fee': avg_maker_fee(blackbox_cj_objs),
     }
 
     report_data['whitebox_obj_stats'] = {
         'total_transactions': len(whitebox_cj_objs),
         'total_participants': sum(len(cj.participants) for cj in whitebox_cj_objs),
         'avg_participants': round(sum(len(cj.participants) for cj in whitebox_cj_objs) / max(len(whitebox_cj_objs), 1), 2),
-        'avg_fee': round(sum(cj.miner_fee for cj in whitebox_cj_objs if hasattr(cj, 'miner_fee')) / max(len(whitebox_cj_objs), 1), 8),
+        'avg_fee': avg_maker_fee(whitebox_cj_objs),
     }
 
     # --- CoinJoin Chain Analysis ---
@@ -244,6 +257,234 @@ def generate_unified_report(
             pair['colored_tree_comparison'] = generate_colored_chain_comparison(bb_chain, wb_chain)
     
     # --- End CoinJoin Chain Analysis ---
+
+    # Calculate input and output statistics for all CoinJoin transactions
+    # We'll collect data from both whitebox and blackbox, and deduplicate by txid
+    
+    # Collect transaction data for statistical analysis
+    all_tx_stats = []
+    seen_txids = set()
+    
+    # Helper function to count inputs in a transaction
+    def count_tx_inputs(tx_data):
+        return len(tx_data.get('vin', []))
+    
+    # Helper function to count outputs in a transaction
+    def count_tx_outputs(tx_data):
+        return len(tx_data.get('vout', []))
+    
+    # Process all CoinJoin transactions for statistics
+    for cj in whitebox_cj_objs + blackbox_cj_objs:
+        # Skip duplicates
+        if cj.txid in seen_txids:
+            continue
+            
+        seen_txids.add(cj.txid)
+        
+        # Count inputs and outputs
+        input_count = count_tx_inputs(cj.tx)
+        output_count = count_tx_outputs(cj.tx)
+        
+        # Collect basic transaction statistics
+        tx_stats = {
+            'txid': cj.txid,
+            'block_height': cj.block_height,
+            'input_count': input_count,
+            'output_count': output_count,
+            'cj_amount': cj.cj_amount,
+            'participant_count': len(cj.participants),
+            'analysis_type': 'whitebox' if cj in whitebox_cj_objs else 'blackbox'
+        }
+        
+        all_tx_stats.append(tx_stats)
+    
+    # Convert to DataFrame for easier analysis
+    if all_tx_stats:
+        tx_stats_df = pd.DataFrame(all_tx_stats)
+        
+        # Calculate statistics
+        input_stats = {
+            'total': tx_stats_df['input_count'].sum(),
+            'mean': tx_stats_df['input_count'].mean(),
+            'median': tx_stats_df['input_count'].median(),
+            'min': tx_stats_df['input_count'].min(),
+            'max': tx_stats_df['input_count'].max(),
+            'std': tx_stats_df['input_count'].std()
+        }
+        
+        output_stats = {
+            'total': tx_stats_df['output_count'].sum(),
+            'mean': tx_stats_df['output_count'].mean(),
+            'median': tx_stats_df['output_count'].median(),
+            'min': tx_stats_df['output_count'].min(),
+            'max': tx_stats_df['output_count'].max(),
+            'std': tx_stats_df['output_count'].std()
+        }
+        
+        # Generate boxplots for input and output counts
+        fig = Figure(figsize=(12, 6))
+        ax = fig.add_subplot(1, 2, 1)
+        tx_stats_df.boxplot(column='input_count', ax=ax)
+        ax.set_title('Input Count Distribution')
+        ax.set_ylabel('Number of Inputs')
+        
+        ax = fig.add_subplot(1, 2, 2)
+        tx_stats_df.boxplot(column='output_count', ax=ax)
+        ax.set_title('Output Count Distribution')
+        ax.set_ylabel('Number of Outputs')
+        
+        # Save figure to a base64 string
+        buf = io.BytesIO()
+        fig.tight_layout()
+        fig.savefig(buf, format='png')
+        buf.seek(0)
+        boxplot_img = base64.b64encode(buf.getbuffer()).decode('ascii')
+        
+        # Generate histograms for input and output counts
+        fig = Figure(figsize=(12, 6))
+        ax = fig.add_subplot(1, 2, 1)
+        ax.hist(tx_stats_df['input_count'], bins=min(20, len(tx_stats_df['input_count'].unique())))
+        ax.set_title('Input Count Histogram')
+        ax.set_xlabel('Number of Inputs')
+        ax.set_ylabel('Frequency')
+        
+        ax = fig.add_subplot(1, 2, 2)
+        ax.hist(tx_stats_df['output_count'], bins=min(20, len(tx_stats_df['output_count'].unique())))
+        ax.set_title('Output Count Histogram')
+        ax.set_xlabel('Number of Outputs')
+        ax.set_ylabel('Frequency')
+        
+        # Save figure to a base64 string
+        buf = io.BytesIO()
+        fig.tight_layout()
+        fig.savefig(buf, format='png')
+        buf.seek(0)
+        histogram_img = base64.b64encode(buf.getbuffer()).decode('ascii')
+        
+        # Add to report data
+        report_data['tx_statistics'] = {
+            'input_stats': input_stats,
+            'output_stats': output_stats,
+            'boxplot_img': boxplot_img,
+            'histogram_img': histogram_img,
+            'tx_count': len(tx_stats_df)
+        }
+        
+        # Add per-transaction statistics
+        report_data['tx_stats_list'] = tx_stats_df.to_dict('records')
+    else:
+        # If no transactions, provide empty statistics
+        report_data['tx_statistics'] = {
+            'input_stats': {},
+            'output_stats': {},
+            'boxplot_img': None,
+            'histogram_img': None,
+            'tx_count': 0
+        }
+        report_data['tx_stats_list'] = []
+
+    # Add a new section for detailed CoinJoin object representation
+    detailed_cj_objects = []
+    
+    # Process whitebox CoinJoin objects
+    for cj in whitebox_cj_objs:
+        cj_details = {
+            "txid": cj.txid,
+            "block_height": cj.block_height,
+            "cj_amount": cj.cj_amount,
+            "miner_fee": cj.miner_fee,
+            "analysis_type": "whitebox",
+            "participants": []
+        }
+        
+        # Process each participant
+        for participant in cj.participants:
+            part_details = {
+                "role": participant.role,
+                "client": participant.client or "Unknown",
+                "input_value": participant.input_value,
+                "output_value": participant.output_value,
+                "delta": participant.delta,
+                "inputs": [{
+                    "txid": inp.txid,
+                    "vout": inp.vout,
+                    "value": inp.value,
+                    "address": inp.address or "Unknown",
+                    "client": inp.client or "Unknown"
+                } for inp in participant.inputs],
+                "cj_output": {
+                    "n": participant.cj_output.n,
+                    "value": participant.cj_output.value,
+                    "address": participant.cj_output.address or "Unknown",
+                    "client": participant.cj_output.client or "Unknown"
+                }
+            }
+            
+            # Add change output if exists
+            if participant.change_output:
+                part_details["change_output"] = {
+                    "n": participant.change_output.n,
+                    "value": participant.change_output.value,
+                    "address": participant.change_output.address or "Unknown",
+                    "client": participant.change_output.client or "Unknown"
+                }
+            
+            cj_details["participants"].append(part_details)
+            
+        detailed_cj_objects.append(cj_details)
+        
+    # Process blackbox CoinJoin objects
+    for cj in blackbox_cj_objs:
+        cj_details = {
+            "txid": cj.txid,
+            "block_height": cj.block_height,
+            "cj_amount": cj.cj_amount,
+            "miner_fee": cj.miner_fee,
+            "analysis_type": "blackbox",
+            "participants": []
+        }
+        
+        # Process each participant
+        for participant in cj.participants:
+            part_details = {
+                "role": participant.role,
+                "client": participant.client or "Unknown",
+                "input_value": participant.input_value,
+                "output_value": participant.output_value,
+                "delta": participant.delta,
+                "inputs": [{
+                    "txid": inp.txid,
+                    "vout": inp.vout,
+                    "value": inp.value,
+                    "address": inp.address or "Unknown",
+                    "client": inp.client or "Unknown"
+                } for inp in participant.inputs],
+                "cj_output": {
+                    "n": participant.cj_output.n,
+                    "value": participant.cj_output.value,
+                    "address": participant.cj_output.address or "Unknown",
+                    "client": participant.cj_output.client or "Unknown"
+                }
+            }
+            
+            # Add change output if exists
+            if participant.change_output:
+                part_details["change_output"] = {
+                    "n": participant.change_output.n,
+                    "value": participant.change_output.value,
+                    "address": participant.change_output.address or "Unknown",
+                    "client": participant.change_output.client or "Unknown"
+                }
+            
+            cj_details["participants"].append(part_details)
+            
+        detailed_cj_objects.append(cj_details)
+    
+    # Sort by block height
+    detailed_cj_objects.sort(key=lambda x: x["block_height"])
+    
+    # Add to report data
+    report_data['detailed_cj_objects'] = detailed_cj_objects
 
     # Check if visualizations exist
     blackbox_vis_path = os.path.join(output_dir, "blackbox_visualization.html")
@@ -459,6 +700,183 @@ def generate_unified_report(
             {% endfor %}
         </tbody>
     </table>
+
+    <h2>Transaction Input-Output Statistics</h2>
+    
+    {% if report_data.tx_statistics and report_data.tx_statistics.tx_count > 0 %}
+    <div class="stats-boxes">
+        <div class="stat-box"><strong>Total Transactions:</strong> {{ report_data.tx_statistics.tx_count }}</div>
+        <div class="stat-box"><strong>Total Inputs:</strong> {{ report_data.tx_statistics.input_stats.total }}</div>
+        <div class="stat-box"><strong>Total Outputs:</strong> {{ report_data.tx_statistics.output_stats.total }}</div>
+    </div>
+    
+    <h3>Input Statistics</h3>
+    <div class="stats-boxes">
+        <div class="stat-box"><strong>Mean:</strong> {{ "%.2f"|format(report_data.tx_statistics.input_stats.mean) }}</div>
+        <div class="stat-box"><strong>Median:</strong> {{ report_data.tx_statistics.input_stats.median }}</div>
+        <div class="stat-box"><strong>Min:</strong> {{ report_data.tx_statistics.input_stats.min }}</div>
+        <div class="stat-box"><strong>Max:</strong> {{ report_data.tx_statistics.input_stats.max }}</div>
+        <div class="stat-box"><strong>Std Dev:</strong> {{ "%.2f"|format(report_data.tx_statistics.input_stats.std) }}</div>
+    </div>
+    
+    <h3>Output Statistics</h3>
+    <div class="stats-boxes">
+        <div class="stat-box"><strong>Mean:</strong> {{ "%.2f"|format(report_data.tx_statistics.output_stats.mean) }}</div>
+        <div class="stat-box"><strong>Median:</strong> {{ report_data.tx_statistics.output_stats.median }}</div>
+        <div class="stat-box"><strong>Min:</strong> {{ report_data.tx_statistics.output_stats.min }}</div>
+        <div class="stat-box"><strong>Max:</strong> {{ report_data.tx_statistics.output_stats.max }}</div>
+        <div class="stat-box"><strong>Std Dev:</strong> {{ "%.2f"|format(report_data.tx_statistics.output_stats.std) }}</div>
+    </div>
+    
+    <h3>Input-Output Distributions</h3>
+    <div style="display: flex; flex-direction: column; margin-bottom: 2em;">
+        <div style="margin-bottom: 1em;">
+            <h4>Boxplots</h4>
+            <img src="data:image/png;base64,{{ report_data.tx_statistics.boxplot_img }}" alt="Input-Output Boxplots" style="max-width:100%; border:1px solid #ddd; border-radius:4px;">
+        </div>
+        <div>
+            <h4>Histograms</h4>
+            <img src="data:image/png;base64,{{ report_data.tx_statistics.histogram_img }}" alt="Input-Output Histograms" style="max-width:100%; border:1px solid #ddd; border-radius:4px;">
+        </div>
+    </div>
+    
+    <h3>Per-Transaction Statistics</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>TXID</th>
+                <th>Block Height</th>
+                <th>Input Count</th>
+                <th>Output Count</th>
+                <th>Participant Count</th>
+                <th>CJ Amount (BTC)</th>
+                <th>Analysis Type</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for tx in report_data.tx_stats_list %}
+            <tr>
+                <td><code class="truncated-text">{{ tx.txid }}</code></td>
+                <td>{{ tx.block_height }}</td>
+                <td>{{ tx.input_count }}</td>
+                <td>{{ tx.output_count }}</td>
+                <td>{{ tx.participant_count }}</td>
+                <td>{{ "%.8f"|format(tx.cj_amount) }}</td>
+                <td>{{ tx.analysis_type }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p>No transaction statistics available.</p>
+    {% endif %}
+
+    <h2>Detailed CoinJoin Objects</h2>
+    
+    {% if report_data.detailed_cj_objects %}
+    <p>Below are the detailed CoinJoin objects showing inputs, outputs, and participant information:</p>
+    
+    {% for cj in report_data.detailed_cj_objects %}
+    <div class="coinjoin-detail" style="margin-bottom: 3em; border: 1px solid #ddd; padding: 1em; border-radius: 8px;">
+        <h3>CoinJoin: <code>{{ cj.txid }}</code> ({{ cj.analysis_type }})</h3>
+        <div class="stats-boxes">
+            <div class="stat-box"><strong>Block Height:</strong> {{ cj.block_height }}</div>
+            <div class="stat-box"><strong>CoinJoin Amount:</strong> {{ "%.8f"|format(cj.cj_amount) }} BTC</div>
+            <div class="stat-box"><strong>Miner Fee:</strong> {{ "%.8f"|format(cj.miner_fee) }} BTC</div>
+            <div class="stat-box"><strong>Participants:</strong> {{ cj.participants | length }}</div>
+        </div>
+        
+        <h4>Participants</h4>
+        
+        {% for participant in cj.participants %}
+        <details>
+            <summary>
+                <strong>{{ participant.role | capitalize }}</strong>
+                {% if participant.client != "Unknown" %} ({{ participant.client }}){% endif %}
+                - Input: {{ "%.8f"|format(participant.input_value) }} BTC,
+                Output: {{ "%.8f"|format(participant.output_value) }} BTC,
+                Fee: {{ "%.8f"|format(participant.delta)}} BTC
+            </summary>
+            
+            <div style="margin: 1em 0 1em 1em;">
+                <h5>Inputs</h5>
+                {% if participant.inputs %}
+                <table>
+                    <thead>
+                        <tr>
+                            <th>TXID</th>
+                            <th>Vout</th>
+                            <th>Value (BTC)</th>
+                            <th>Address</th>
+                            <th>Client</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for input in participant.inputs %}
+                        <tr>
+                            <td><code class="truncated-text">{{ input.txid }}</code></td>
+                            <td>{{ input.vout }}</td>
+                            <td>{{ "%.8f"|format(input.value) }}</td>
+                            <td><code>{{ input.address }}</code></td>
+                            <td>{{ input.client }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <p>No inputs attributed to this participant</p>
+                {% endif %}
+                
+                <h5>CoinJoin Output</h5>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Index</th>
+                            <th>Value (BTC)</th>
+                            <th>Address</th>
+                            <th>Client</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>{{ participant.cj_output.n }}</td>
+                            <td>{{ "%.8f"|format(participant.cj_output.value) }}</td>
+                            <td><code>{{ participant.cj_output.address }}</code></td>
+                            <td>{{ participant.cj_output.client }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+                
+                {% if participant.change_output %}
+                <h5>Change Output</h5>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Index</th>
+                            <th>Value (BTC)</th>
+                            <th>Address</th>
+                            <th>Client</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>{{ participant.change_output.n }}</td>
+                            <td>{{ "%.8f"|format(participant.change_output.value) }}</td>
+                            <td><code>{{ participant.change_output.address }}</code></td>
+                            <td>{{ participant.change_output.client }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+                {% endif %}
+            </div>
+        </details>
+        {% endfor %}
+    </div>
+    {% endfor %}
+    
+    {% else %}
+    <p>No detailed CoinJoin objects available.</p>
+    {% endif %}
 
     <!-- CoinJoin Chain Analysis Section -->
     <h2>CoinJoin Chain Analysis</h2>

@@ -1,0 +1,408 @@
+<h2>Overall Detection Comparison (TXID-based)</h2>
+<div class="stats-boxes">
+  <div class="stat-box"><strong>Total Blackbox TXIDs:</strong> {{ report_data.txid_comparison.total_blackbox }}</div>
+  <div class="stat-box"><strong>Total Whitebox TXIDs:</strong> {{ report_data.txid_comparison.total_whitebox }}</div>
+  <div class="stat-box"><strong>Common TXIDs:</strong> {{ report_data.txid_comparison.common }}</div>
+  <div class="stat-box"><strong>Only in Blackbox:</strong> {{ report_data.txid_comparison.only_blackbox }}</div>
+  <div class="stat-box"><strong>Only in Whitebox:</strong> {{ report_data.txid_comparison.only_whitebox }}</div>
+  <div class="stat-box"><strong>Detection Agreement:</strong> {{ report_data.txid_comparison.detection_agreement }}%</div>
+</div>
+
+<h2>Object-Level CoinJoin Comparison</h2>
+<div class="stats-boxes">
+    <div class="stat-box"><strong>Compared TXs:</strong> {{ report_data.object_comparison.comparison_tx_count }}</div>
+    <div class="stat-box"><strong>Avg. Overall Role Success (all BB):</strong> {{ report_data.object_comparison.overall_role_success_avg }}%</div>
+    <div class="stat-box"><strong>Participant Match Rate:</strong> {{ report_data.object_comparison.participant_match_rate }}%</div>
+    <div class="stat-box"><strong>Avg. Taker Match:</strong> {{ report_data.object_comparison.taker_match_avg }}%</div>
+    <div class="stat-box"><strong>Avg. UTXO Attribution Accuracy:</strong> {{ report_data.object_comparison.utxo_accuracy_avg }}%</div>
+</div>
+
+<h3>Blackbox CoinJoin Object Statistics</h3>
+<div class="stats-boxes">
+    <div class="stat-box"><strong>Total Transactions:</strong> {{ report_data.blackbox_obj_stats.total_transactions }}</div>
+    <div class="stat-box"><strong>Total Participants:</strong> {{ report_data.blackbox_obj_stats.total_participants }}</div>
+    <div class="stat-box"><strong>Avg. Participants/TX:</strong> {{ report_data.blackbox_obj_stats.avg_participants }}</div>
+    <div class="stat-box"><strong>Avg. Fee/TX:</strong> {{ report_data.blackbox_obj_stats.avg_fee | safe_format_float }} BTC</div>
+</div>
+
+<h3>Whitebox CoinJoin Object Statistics</h3>
+<div class="stats-boxes">
+    <div class="stat-box"><strong>Total Transactions:</strong> {{ report_data.whitebox_obj_stats.total_transactions }}</div>
+    <div class="stat-box"><strong>Total Participants:</strong> {{ report_data.whitebox_obj_stats.total_participants }}</div>
+    <div class="stat-box"><strong>Avg. Participants/TX:</strong> {{ report_data.whitebox_obj_stats.avg_participants }}</div>
+    <div class="stat-box"><strong>Avg. Fee/TX:</strong> {{ report_data.whitebox_obj_stats.avg_fee | safe_format_float }} BTC</div>
+</div>
+
+<h3>Detailed Object Comparison per Transaction</h3>
+<table>
+  <thead>
+    <tr>
+      <th>TXID</th>
+      <th>Block Height</th>
+      <th>BB Participants</th>
+      <th>WB Participants</th>
+      <th>Matched Participants</th>
+      <th>BB CJ Amount</th>
+      <th>WB CJ Amount</th>
+      <th>WB Taker Client(s)</th>
+      <th>BB Taker Client(s)</th>
+      <th>Taker Match</th>
+      <th>UTXO Attribution Accuracy</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for tx in report_data.object_comparison.obj_comparison %}
+    <tr{% if tx.participants_bb == 0 %} style="background-color: #ffdddd;"{% endif %}>
+      <td><code>{{ tx.txid }}</code></td>
+      <td>{{ tx.block_height }}</td>
+      <td>{{ tx.participants_bb }}</td>
+      <td>{{ tx.participants_wb }}</td>
+      <td>{{ tx.matched_participants }}</td>
+      <td>{{ tx.blackbox_cj_amount | safe_format_float }} BTC</td>
+      <td>{{ tx.whitebox_cj_amount | safe_format_float }} BTC</td>
+      <td>{{ tx.wb_taker_clients }}</td>
+      <td>{{ tx.bb_taker_clients }}</td>
+      <td>{{ tx.taker_match }}</td>
+      <td>{{ tx.utxo_accuracy }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<h3>Detailed Participant Role Breakdown</h3>
+<table>
+    <thead>
+        <tr>
+            <th>TXID</th>
+            <th>Taker Client</th>
+            <th>BB Participant Signature</th>
+            <th>BB Role</th>
+            <th>WB Role(s)</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for part_detail in report_data.detailed_participant_breakdown %}
+        <tr>
+            <td><code>{{ part_detail.txid }}</code></td>
+            <td>{{ part_detail.taker_client }}</td>
+            <td><code>{{ part_detail.bb_sig }}</code></td>
+            <td>{{ part_detail.bb_role }}</td>
+            <td {% if not part_detail.role_match %}style="background-color: #ffcccc;"{% endif %}>{{ part_detail.wb_roles }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<h2>Transaction Input-Output Statistics</h2>
+{% if report_data.tx_statistics and report_data.tx_statistics.tx_count > 0 %}
+<div class="stats-boxes">
+    <div class="stat-box"><strong>Total Transactions:</strong> {{ report_data.tx_statistics.tx_count }}</div>
+    <div class="stat-box"><strong>Total Inputs:</strong> {{ report_data.tx_statistics.input_stats.total }}</div>
+    <div class="stat-box"><strong>Total Outputs:</strong> {{ report_data.tx_statistics.output_stats.total }}</div>
+</div>
+<h3>Input Statistics</h3>
+<div class="stats-boxes">
+    <div class="stat-box"><strong>Mean:</strong> {{ report_data.tx_statistics.input_stats.mean | safe_format_float(2) }}</div>
+    <div class="stat-box"><strong>Median:</strong> {{ report_data.tx_statistics.input_stats.median }}</div>
+    <div class="stat-box"><strong>Min:</strong> {{ report_data.tx_statistics.input_stats.min }}</div>
+    <div class="stat-box"><strong>Max:</strong> {{ report_data.tx_statistics.input_stats.max }}</div>
+    <div class="stat-box"><strong>Std Dev:</strong> {{ report_data.tx_statistics.input_stats.std | safe_format_float(2) }}</div>
+</div>
+<h3>Output Statistics</h3>
+<div class="stats-boxes">
+    <div class="stat-box"><strong>Mean:</strong> {{ report_data.tx_statistics.output_stats.mean | safe_format_float(2) }}</div>
+    <div class="stat-box"><strong>Median:</strong> {{ report_data.tx_statistics.output_stats.median }}</div>
+    <div class="stat-box"><strong>Min:</strong> {{ report_data.tx_statistics.output_stats.min }}</div>
+    <div class="stat-box"><strong>Max:</strong> {{ report_data.tx_statistics.output_stats.max }}</div>
+    <div class="stat-box"><strong>Std Dev:</strong> {{ report_data.tx_statistics.output_stats.std | safe_format_float(2) }}</div>
+</div>
+<h3>Input-Output Distributions</h3>
+<div style="display: flex; flex-direction: column; margin-bottom: 2em;">
+    <div style="margin-bottom: 1em;">
+        <h4>Boxplots</h4>
+        <img src="data:image/png;base64,{{ report_data.tx_statistics.boxplot_img }}" alt="Input-Output Boxplots" style="max-width:100%; border:1px solid #ddd; border-radius:4px;">
+    </div>
+    <div>
+        <h4>Histograms</h4>
+        <img src="data:image/png;base64,{{ report_data.tx_statistics.histogram_img }}" alt="Input-Output Histograms" style="max-width:100%; border:1px solid #ddd; border-radius:4px;">
+    </div>
+</div>
+<h3>Per-Transaction Statistics</h3>
+<table>
+    <thead>
+        <tr>
+            <th>TXID</th>
+            <th>Block Height</th>
+            <th>Input Count</th>
+            <th>Output Count</th>
+            <th>Participant Count</th>
+            <th>CJ Amount (BTC)</th>
+            <th>Analysis Type</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for tx in report_data.tx_stats_list %}
+        <tr>
+            <td><code class="truncated-text">{{ tx.txid }}</code></td>
+            <td>{{ tx.block_height }}</td>
+            <td>{{ tx.input_count }}</td>
+            <td>{{ tx.output_count }}</td>
+            <td>{{ tx.participant_count }}</td>
+            <td>{{ tx.cj_amount | safe_format_float }}</td>
+            <td>{{ tx.analysis_type }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p>No transaction statistics available.</p>
+{% endif %}
+
+<h2>Detailed CoinJoin Objects</h2>
+{% if report_data.detailed_cj_objects %}
+<p>Below are the detailed CoinJoin objects showing inputs, outputs, and participant information:</p>
+{% for cj in report_data.detailed_cj_objects %}
+<div class="coinjoin-detail" style="margin-bottom: 3em; border: 1px solid #ddd; padding: 1em; border-radius: 8px;">
+    <h3>CoinJoin: <code>{{ cj.txid }}</code> ({{ cj.analysis_type }})</h3>
+    <div class="stats-boxes">
+        <div class="stat-box"><strong>Block Height:</strong> {{ cj.block_height }}</div>
+        <div class="stat-box"><strong>CoinJoin Amount:</strong> {{ cj.cj_amount | safe_format_float }} BTC</div>
+        <div class="stat-box"><strong>Miner Fee:</strong> {{ cj.miner_fee | safe_format_float }} BTC</div>
+        <div class="stat-box"><strong>Participants:</strong> {{ cj.participants | length }}</div>
+    </div>
+    <h4>Participants</h4>
+    {% for participant in cj.participants %}
+    <details>
+        <summary>
+            <strong>{{ participant.role | capitalize }}</strong>
+            {% if participant.client != "Unknown" %} ({{ participant.client }}){% endif %}
+            - Input: {{ participant.input_value | safe_format_float }} BTC,
+            Output: {{ participant.output_value | safe_format_float }} BTC,
+            Fee: {{ participant.delta | safe_format_float }} BTC
+        </summary>
+        <div style="margin: 1em 0 1em 1em;">
+            <h5>Inputs</h5>
+            {% if participant.inputs %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>TXID</th>
+                        <th>Vout</th>
+                        <th>Value (BTC)</th>
+                        <th>Address</th>
+                        <th>Client</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for input in participant.inputs %}
+                    <tr>
+                        <td><code class="truncated-text">{{ input.txid }}</code></td>
+                        <td>{{ input.vout }}</td>
+                        <td>{{ input.value | safe_format_float }}</td>
+                        <td><code>{{ input.address }}</code></td>
+                        <td>{{ input.client }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p>No inputs attributed to this participant</p>
+            {% endif %}
+            <h5>CoinJoin Output</h5>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Index</th>
+                        <th>Value (BTC)</th>
+                        <th>Address</th>
+                        <th>Client</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>{{ participant.cj_output.n }}</td>
+                        <td>{{ participant.cj_output.value | safe_format_float }}</td>
+                        <td><code>{{ participant.cj_output.address }}</code></td>
+                        <td>{{ participant.cj_output.client }}</td>
+                    </tr>
+                </tbody>
+            </table>
+            {% if participant.change_output %}
+            <h5>Change Output</h5>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Index</th>
+                        <th>Value (BTC)</th>
+                        <th>Address</th>
+                        <th>Client</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>{{ participant.change_output.n }}</td>
+                        <td>{{ participant.change_output.value | safe_format_float }}</td>
+                        <td><code>{{ participant.change_output.address }}</code></td>
+                        <td>{{ participant.change_output.client }}</td>
+                    </tr>
+                </tbody>
+            </table>
+            {% endif %}
+        </div>
+    </details>
+    {% endfor %}
+</div>
+{% endfor %}
+{% else %}
+<p>No detailed CoinJoin objects available.</p>
+{% endif %}
+
+<!-- CoinJoin Chain Analysis Section -->
+<h2>CoinJoin Chain Analysis</h2>
+<h3>Identified Blackbox Chains ({{ report_data.blackbox_identified_chains | length }})</h3>
+{% if report_data.blackbox_identified_chains %}
+<table>
+    <thead>
+        <tr>
+            <th>Chain ID</th>
+            <th>Length</th>
+            <th>Start Block</th>
+            <th>End Block</th>
+            <th>Duration (Blocks)</th>
+            <th>Tree Representation</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for chain in report_data.blackbox_identified_chains %}
+        <tr>
+            <td><code>{{ chain.id }}</code></td>
+            <td>{{ chain.length() }}</td>
+            <td>{{ chain.start_block() }}</td>
+            <td>{{ chain.end_block() }}</td>
+            <td>{{ chain.duration_blocks() }}</td>
+            <td><pre>{{ chain.tree_repr }}</pre></td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p>No blackbox CoinJoin chains were identified.</p>
+{% endif %}
+<h3>Identified Whitebox Chains ({{ report_data.whitebox_identified_chains | length }})</h3>
+{% if report_data.whitebox_identified_chains %}
+<table>
+    <thead>
+        <tr>
+            <th>Chain ID</th>
+            <th>Length</th>
+            <th>Start Block</th>
+            <th>End Block</th>
+            <th>Duration (Blocks)</th>
+            <th>Tree Representation</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for chain in report_data.whitebox_identified_chains %}
+        <tr>
+            <td><code>{{ chain.id }}</code></td>
+            <td>{{ chain.length() }}</td>
+            <td>{{ chain.start_block() }}</td>
+            <td>{{ chain.end_block() }}</td>
+            <td>{{ chain.duration_blocks() }}</td>
+            <td><pre>{{ chain.tree_representation }}</pre></td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p>No whitebox CoinJoin chains were identified.</p>
+{% endif %}
+<h3>Chain Comparison Summary</h3>
+{% if report_data.chain_comparison_summary %}
+<div class="stats-boxes">
+    <div class="stat-box"><strong>Total Blackbox Chains:</strong> {{ report_data.chain_comparison_summary.total_blackbox_chains }}</div>
+    <div class="stat-box"><strong>Total Whitebox Chains:</strong> {{ report_data.chain_comparison_summary.total_whitebox_chains }}</div>
+    <div class="stat-box"><strong>Matched Pairs:</strong> {{ report_data.chain_comparison_summary.num_matched_pairs }}</div>
+    <div class="stat-box"><strong>Fully Matched Pairs:</strong> {{ report_data.chain_comparison_summary.num_fully_matched_pairs }}</div>
+    <div class="stat-box"><strong>Partially Matched Pairs:</strong> {{ report_data.chain_comparison_summary.num_partially_matched_pairs }}</div>
+</div>
+<h4>Matched Chain Pairs ({{ report_data.chain_comparison_summary.matched_chain_pairs | length }})</h4>
+{% if report_data.chain_comparison_summary.matched_chain_pairs %}
+<table>
+    <thead>
+        <tr>
+            <th>Blackbox Chain ID</th>
+            <th>Whitebox Chain ID</th>
+            <th>Similarity Score</th>
+            <th>Full Match?</th>
+            <th>Chain Comparison</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for pair in report_data.chain_comparison_summary.matched_chain_pairs %}
+        <tr>
+            <td><code>{{ pair.blackbox_chain_id }}</code></td>
+            <td><code>{{ pair.whitebox_chain_id }}</code></td>
+            <td>{{ pair.similarity_score | safe_format_float(4) }}</td>
+            <td>{{ pair.is_full_match }}</td>
+            <td>
+                {% if pair.colored_tree_comparison %}
+                    {{ pair.colored_tree_comparison | safe }}
+                {% else %}
+                    <details>
+                        <summary>Common TXIDs</summary>
+                        <div class="truncated-text">{{ pair.common_txids | join(', ') }}</div>
+                    </details>
+                    <details>
+                        <summary>Only in Blackbox</summary>
+                        <div class="truncated-text">{{ pair.only_blackbox_txids | join(', ') }}</div>
+                    </details>
+                    <details>
+                        <summary>Only in Whitebox</summary>
+                        <div class="truncated-text">{{ pair.only_whitebox_txids | join(', ') }}</div>
+                    </details>
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p>No chain pairs were matched.</p>
+{% endif %}
+<h4>Unmatched Blackbox Chains ({{ report_data.chain_comparison_summary.unmatched_blackbox_chain_ids | length }})</h4>
+{% if report_data.chain_comparison_summary.unmatched_blackbox_chain_ids %}
+<ul>
+    {% for chain_id in report_data.chain_comparison_summary.unmatched_blackbox_chain_ids %}
+    <li><code>{{ chain_id }}</code></li>
+    {% endfor %}
+</ul>
+{% else %}
+<p>All blackbox chains were matched or no blackbox chains were identified.</p>
+{% endif %}
+<h4>Unmatched Whitebox Chains ({{ report_data.chain_comparison_summary.unmatched_whitebox_chain_ids | length }})</h4>
+{% if report_data.chain_comparison_summary.unmatched_whitebox_chain_ids %}
+<ul>
+    {% for chain_id in report_data.chain_comparison_summary.unmatched_whitebox_chain_ids %}
+    <li><code>{{ chain_id }}</code></li>
+    {% endfor %}
+</ul>
+{% else %}
+<p>All whitebox chains were matched or no whitebox chains were identified.</p>
+{% endif %}
+{% else %}
+<p>Chain comparison data is not available.</p>
+{% endif %}
+<!-- End CoinJoin Chain Analysis Section -->
+
+<h2>TXID Comparison Lists</h2>
+<div class="stats-boxes">
+    <div class="stat-box"><strong>All Plain TXIDs:</strong> {{ report_data.txid_lists.all_plain_txids }}</div>
+    <div class="stat-box"><strong>Blackbox Chain TXIDs:</strong> {{ report_data.txid_lists.blackbox_chain_txids }}</div>
+    <div class="stat-box"><strong>Whitebox Chain TXIDs:</strong> {{ report_data.txid_lists.whitebox_chain_txids }}</div>
+    <div class="stat-box"><strong>Unattributed in Blackbox:</strong> {{ report_data.txid_lists.unattributed_in_blackbox }}</div>
+    <div class="stat-box"><strong>Unattributed in Whitebox:</strong> {{ report_data.txid_lists.unattributed_in_whitebox }}</div>
+</div>
+
+{{ blacbox_iframe | safe }}
+{{ whitebox_iframe | safe }}

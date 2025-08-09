@@ -5,25 +5,23 @@ Unified reporting module for combining blackbox and whitebox CoinJoin analysis.
 
 import sys
 import os
-import json
 from pathlib import Path
 import argparse
 import pandas as pd
-from typing import Dict, List, Tuple, Any, Optional, Set
+from typing import Dict, List, Tuple, Any
+import pickle
 
 # Add the project root to the Python path
 project_root = str(Path(__file__).parent.parent.parent)
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from joinmarket.common.coinjoin_model import CoinJoin, TxInput, TxOutput, CoinJoinParticipant, generate_coinjoin_flow_vis_graph
+from joinmarket.common.coinjoin_model import CoinJoin, generate_coinjoin_flow_vis_graph
 from joinmarket.blackbox.parse_blockchain import detect_coinjoin_txs
-from joinmarket.blackbox.joinmarket_sudoku import solve_joinmarket_sudoku
+from joinmarket.blackbox.coinjoin_sudoku.joinmarket_sudoku import solve_sudoku_for_coinjoin_set
 from joinmarket.blackbox.load_blockchain import load_blocks
-from joinmarket.whitebox.attribute import analyze_coinjoins, load_client_addresses, build_coinjoin_records
-from joinmarket.whitebox.attribute import detect_coinjoin_txs as detect_whitebox_txs
+from joinmarket.whitebox.attribute import analyze_coinjoins
 from joinmarket.whitebox.load_scenario import load_client_roles_from_file
-from joinmarket.visualisation.cj_flow_graph_data import CoinJoinGraphBuilder
 from joinmarket.unified_report.create_report import generate_unified_report
 
 
@@ -58,7 +56,7 @@ def run_blackbox_analysis(tx_map: Dict[str, Any]) -> Tuple[List[Tuple[str, Dict,
     print(f"Found {len(blackbox_coinjoins)} potential CoinJoins using blackbox analysis")
     
     print("Solving CoinJoin sudoku (blackbox attribution)...")
-    blackbox_cj_objs, blackbox_results = solve_joinmarket_sudoku(blackbox_coinjoins, tx_map)
+    blackbox_cj_objs, blackbox_results = solve_sudoku_for_coinjoin_set(blackbox_coinjoins, tx_map)
     print(f"Analyzed {len(blackbox_results)} CoinJoin transactions with blackbox approach")
     print(f"Created {len(blackbox_cj_objs)} CoinJoin objects from blackbox analysis")
     
@@ -104,22 +102,28 @@ def generate_visualizations(blackbox_cj_objs, whitebox_cj_objs, client_roles, ou
     # Blackbox visualization
     if blackbox_cj_objs:
         print("Generating blackbox visualization...")
-        blackbox_graph = generate_coinjoin_flow_vis_graph(
-            cj_objs=blackbox_cj_objs,
-            client_roles=client_roles,
-            show_changes=False
-        )
-        blackbox_graph.save_graph(os.path.join(output_dir, "blackbox_visualization.html"))
-    
+        try:
+            blackbox_graph = generate_coinjoin_flow_vis_graph(
+                cj_objs=blackbox_cj_objs,
+                client_roles=client_roles,
+                show_changes=False
+            )
+            blackbox_graph.save_graph(os.path.join(output_dir, "blackbox_visualization.html"))
+        except Exception as e:
+            print(f"Error generating blackbox visualization: {e}")
+
     # Whitebox visualization
     if whitebox_cj_objs:
         print("Generating whitebox visualization...")
-        whitebox_graph = generate_coinjoin_flow_vis_graph(
-            cj_objs=whitebox_cj_objs,
-            client_roles=client_roles,
-            show_changes=False
-        )
-        whitebox_graph.save_graph(os.path.join(output_dir, "whitebox_visualization.html"))
+        try:
+            whitebox_graph = generate_coinjoin_flow_vis_graph(
+                cj_objs=whitebox_cj_objs,
+                client_roles=client_roles,
+                show_changes=False
+            )
+            whitebox_graph.save_graph(os.path.join(output_dir, "whitebox_visualization.html"))
+        except Exception as e:
+            print(f"Error generating whitebox visualization: {e}")
 
 
 def save_results_to_csv(blackbox_results, whitebox_data, output_dir):
@@ -142,6 +146,39 @@ def save_results_to_csv(blackbox_results, whitebox_data, output_dir):
         whitebox_df.to_csv(os.path.join(output_dir, "whitebox_results.csv"), index=False)
 
 
+def save_analysis_cache(blackbox_results, whitebox_data, blackbox_cj_objs, whitebox_cj_objs, output_dir):
+    """
+    Save all intermediate analysis results (including CoinJoin objects) to pickle files.
+    """
+    with open(os.path.join(output_dir, "blackbox_results.pkl"), "wb") as f:
+        pickle.dump(blackbox_results, f)
+    with open(os.path.join(output_dir, "whitebox_data.pkl"), "wb") as f:
+        pickle.dump(whitebox_data, f)
+    with open(os.path.join(output_dir, "blackbox_cj_objs.pkl"), "wb") as f:
+        pickle.dump(blackbox_cj_objs, f)
+    with open(os.path.join(output_dir, "whitebox_cj_objs.pkl"), "wb") as f:
+        pickle.dump(whitebox_cj_objs, f)
+
+
+def load_analysis_cache(output_dir):
+    """
+    Load all intermediate analysis results (including CoinJoin objects) from pickle files if present.
+    Returns (blackbox_results, whitebox_data, blackbox_cj_objs, whitebox_cj_objs), or (None, ...)
+    """
+    try:
+        with open(os.path.join(output_dir, "blackbox_results.pkl"), "rb") as f:
+            blackbox_results = pickle.load(f)
+        with open(os.path.join(output_dir, "whitebox_data.pkl"), "rb") as f:
+            whitebox_data = pickle.load(f)
+        with open(os.path.join(output_dir, "blackbox_cj_objs.pkl"), "rb") as f:
+            blackbox_cj_objs = pickle.load(f)
+        with open(os.path.join(output_dir, "whitebox_cj_objs.pkl"), "rb") as f:
+            whitebox_cj_objs = pickle.load(f)
+        return blackbox_results, whitebox_data, blackbox_cj_objs, whitebox_cj_objs
+    except Exception:
+        return None, None, None, None
+
+
 def run_analysis(data_dir: str) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]], List[CoinJoin], List[CoinJoin]]:
     """
     Run both blackbox and whitebox analysis on the same dataset.
@@ -158,10 +195,12 @@ def run_analysis(data_dir: str) -> Tuple[List[Dict[str, Any]], List[Dict[str, An
     """
     # Load blockchain data
     block_map, tx_map = load_blockchain_data(data_dir)
-    
+
+    print("Running CoinJoin blackbox analysis...")
     # Run blackbox analysis
     blackbox_coinjoins, blackbox_results, blackbox_cj_objs = run_blackbox_analysis(tx_map)
-    
+
+    print("Running CoinJoin whitebox analysis...")
     # Run whitebox analysis
     whitebox_data, whitebox_edges, whitebox_cj_objs = run_whitebox_analysis(tx_map, data_dir)
     
@@ -172,6 +211,7 @@ def main():
     parser = argparse.ArgumentParser(description="Unified CoinJoin Analysis Report Generator")
     parser.add_argument("data_dir", help="Path to simulation data directory")
     parser.add_argument("--out-dir", help="Output directory (default: data_dir/report_unified)")
+    parser.add_argument("--no-cache", action="store_true", help="Do not use cached results; always recompute")
     args = parser.parse_args()
     
     # Create output directory
@@ -183,19 +223,27 @@ def main():
     
     print(f"Analyzing CoinJoins in {args.data_dir}")
     
-    # Run both analyses
-    blackbox_results, whitebox_data, whitebox_cj_objs, blackbox_cj_objs = run_analysis(args.data_dir)
-    
+    # Try loading from full cache if allowed
+    blackbox_results = whitebox_data = blackbox_cj_objs = whitebox_cj_objs = None
+    if not args.no_cache:
+        print(f"Loading analysis results from pickle cache in {output_dir}...")
+        bb, wb, bb_objs, wb_objs = load_analysis_cache(output_dir)
+        if all(x is not None for x in [bb, wb, bb_objs, wb_objs]):
+            print("Loaded all intermediate results from pickle cache.")
+            blackbox_results = bb
+            whitebox_data = wb
+            blackbox_cj_objs = bb_objs
+            whitebox_cj_objs = wb_objs
+    if not all(x is not None for x in [blackbox_results, whitebox_data, blackbox_cj_objs, whitebox_cj_objs]):
+        # Run both analyses if cache not used or missing
+        blackbox_results, whitebox_data, whitebox_cj_objs, blackbox_cj_objs = run_analysis(args.data_dir)
+        print("Saving analysis results to pickle cache...")
+        save_analysis_cache(blackbox_results, whitebox_data, blackbox_cj_objs, whitebox_cj_objs, output_dir)
     # Get client roles from scenario.json if available
     print("Parsing client roles from scenario.json...")
     client_roles = load_client_roles_from_file(project_root=args.data_dir)
-    
     # Generate visualizations
     generate_visualizations(blackbox_cj_objs, whitebox_cj_objs, client_roles, output_dir)
-    
-    # Save results to CSV
-    save_results_to_csv(blackbox_results, whitebox_data, output_dir)
-    
     # Generate unified HTML report
     print(f"Generating unified report in {output_dir}")
     generate_unified_report(
@@ -205,7 +253,6 @@ def main():
         whitebox_cj_objs=whitebox_cj_objs,
         output_dir=output_dir
     )
-    
     print(f"Report generated at {os.path.join(output_dir, 'report.html')}")
 
 

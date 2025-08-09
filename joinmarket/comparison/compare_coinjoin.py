@@ -132,34 +132,42 @@ def generate_object_comparison(
     bb_map = {cj.txid: cj for cj in blackbox_cj_objs}
     wb_map = {cj.txid: cj for cj in whitebox_cj_objs}
 
-    common_txids = bb_map.keys() & wb_map.keys()
+    all_txids = set(bb_map.keys()) | set(wb_map.keys())
     per_tx: List[Dict[str, Any]] = []
 
     # ──────────────────────────────────────────────────────────────────
-    for txid in common_txids:
-        comp = compare_coinjoin_objects(bb_map[txid], wb_map[txid], detailed=detailed)
+    for txid in all_txids:
+        bb_obj = bb_map.get(txid)
+        wb_obj = wb_map.get(txid)
+        comp = compare_coinjoin_objects(bb_obj, wb_obj, detailed=detailed)
         per_tx.append(comp)
 
-    per_tx.sort(key=lambda x: x["block_height"])
+    per_tx.sort(key=lambda x: x.get("block_height", 0))
 
     # ──────────────────────────────────────────────────────────────────
     # aggregated statistics
     tx_cnt                   = len(per_tx)
-    role_acc_avg             = round(sum(t["role_accuracy"]        for t in per_tx) / max(tx_cnt, 1), 2)
-    overall_role_succ_avg    = round(sum(t["overall_role_success"] for t in per_tx) / max(tx_cnt, 1), 2)
+    role_acc_avg             = round(sum(t["role_accuracy"]        for t in per_tx if t.get("role_accuracy") is not None) / max(tx_cnt, 1), 2)
+    overall_role_succ_avg    = round(sum(t["overall_role_success"] for t in per_tx if t.get("overall_role_success") is not None) / max(tx_cnt, 1), 2)
+    taker_success_avg        = round(sum(t["taker_success"]       for t in per_tx if t.get("taker_success") is not None) / max(tx_cnt, 1), 2)
+    taker_match_avg         = round(sum(t["taker_match"]         for t in per_tx if t.get("taker_match") is not None) / max(tx_cnt, 1) * 100, 2)
+    utxo_accuracy_avg        = round(sum(t["utxo_accuracy"] for t in per_tx if t.get("utxo_accuracy") is not None) / max(tx_cnt, 1), 2)
 
-    total_bb_parts           = sum(t["participants_bb"]     for t in per_tx)
-    total_matched_parts      = sum(t["matched_participants"] for t in per_tx)
+    total_bb_parts           = sum(t["participants_bb"]     for t in per_tx if t.get("participants_bb") is not None)
+    total_matched_parts      = sum(t["matched_participants"] for t in per_tx if t.get("matched_participants") is not None)
     participant_match_rate   = round(total_matched_parts / max(total_bb_parts, 1) * 100, 2)
 
     return {
         "obj_comparison":            per_tx,              # per-transaction breakdown
         "comparison_tx_count":       tx_cnt,
         "role_accuracy_avg":         role_acc_avg,        # avg. accuracy within matched participants
+        "taker_success_avg":         taker_success_avg,   # avg. success within matched participants
         "overall_role_success_avg":  overall_role_succ_avg,  # avg. success over *all* BB participants
         "participant_match_rate":    participant_match_rate, # % of BB participants we could pair
         "total_bb_participants":     total_bb_parts,
         "total_matched_participants": total_matched_parts,
+        "taker_match_avg":           taker_match_avg,
+        "utxo_accuracy_avg":         utxo_accuracy_avg,
     }
 
 
@@ -182,13 +190,92 @@ def _possible_match(sig_bb, sig_wb) -> bool:
     return (addr_bb is not None and addr_bb == addr_wb) or bool(in_bb & in_wb)
 
 
+def attribute_utxo_accuracy(wb, bb):
+    wb_input_roles = {}
+    for participant in wb.participants:
+        for tx_input in participant.inputs:
+            wb_input_roles[tx_input.txid] = participant.role
+
+    # Build blackbox input mapping: {txid: role}
+    bb_input_roles = {}
+    for participant in bb.participants:
+        for tx_input in participant.inputs:
+            bb_input_roles[tx_input.txid] = participant.role
+
+    # Calculate input attribution accuracy
+    correct_attributions = 0
+    total_common_inputs = 0
+
+    # Find inputs that exist in both analyses
+    for txid, bb_role in bb_input_roles.items():
+        if txid in wb_input_roles:
+            total_common_inputs += 1
+            wb_role = wb_input_roles[txid]
+            # Count as correct if roles match and neither is "unknown"
+            if bb_role == wb_role and bb_role != "unknown":
+                correct_attributions += 1
+
+    input_attribution_accuracy = round(
+        (correct_attributions / max(total_common_inputs, 1)) * 100, 2
+    ) if total_common_inputs > 0 else None
+
+    return input_attribution_accuracy
+
+
 def compare_coinjoin_objects(bb, wb, *, detailed: bool = False) -> Dict[str, Any]:
+    # Handle cases where one or both objects are None
+    if bb is None and wb is None:
+        return {
+            "txid": None,
+            "block_height": None,
+            "participants_bb": None,
+            "participants_wb": None,
+            "matched_participants": None,
+            "role_accuracy": None,
+            "overall_role_success": None,
+            "blackbox_cj_amount": None,
+            "whitebox_cj_amount": None,
+            "blackbox_fee": None,
+            "whitebox_fee": None,
+            "participant_breakdown": [] if detailed else None,
+        }
+    if bb is None:
+        return {
+            "txid": wb.txid,
+            "block_height": wb.block_height,
+            "participants_bb": None,
+            "participants_wb": len(wb.participants),
+            "matched_participants": 0,
+            "role_accuracy": None,
+            "overall_role_success": None,
+            "blackbox_cj_amount": None,
+            "whitebox_cj_amount": wb.cj_amount,
+            "blackbox_fee": None,
+            "whitebox_fee": wb.miner_fee,
+            "participant_breakdown": [] if detailed else None,
+        }
+    if wb is None:
+        return {
+            "txid": bb.txid,
+            "block_height": bb.block_height,
+            "participants_bb": len(bb.participants),
+            "participants_wb": None,
+            "matched_participants": 0,
+            "role_accuracy": None,
+            "overall_role_success": None,
+            "blackbox_cj_amount": bb.cj_amount,
+            "whitebox_cj_amount": None,
+            "blackbox_fee": bb.miner_fee,
+            "whitebox_fee": None,
+            "participant_breakdown": [] if detailed else None,
+        }
+
     # ───────── build WB index
     wb_idx: Dict[Tuple[frozenset, str | None], list] = {}
     for p in wb.participants:
         wb_idx.setdefault(_participant_signature(p), []).append(p)
 
-    matched = role_matches = 0
+    matched = role_matches = taker_matches = 0
     part_details: List[Dict[str, Any]] = []
 
     for b in bb.participants:
@@ -196,7 +283,6 @@ def compare_coinjoin_objects(bb, wb, *, detailed: bool = False) -> Dict[str, Any
         wb_cand    = wb_idx.get(sig_b)
 
         if not wb_cand:
-            # fuzzy fallback
             for sig_w, lst in wb_idx.items():
                 if _possible_match(sig_b, sig_w):
                     wb_cand = lst
@@ -206,8 +292,8 @@ def compare_coinjoin_objects(bb, wb, *, detailed: bool = False) -> Dict[str, Any
         if has_match:
             matched += 1
             role_ok = any(b.role == w.role and b.role != "unknown" for w in wb_cand)
-            if role_ok:
-                role_matches += 1
+            role_matches += 1 if role_ok else 0
+            taker_matches += 1 if role_ok and wb_cand[0].role == "taker" else 0
         else:
             role_ok = False
 
@@ -221,8 +307,10 @@ def compare_coinjoin_objects(bb, wb, *, detailed: bool = False) -> Dict[str, Any
                 "role_match": role_ok,
             })
 
+    utxo_accuracy        = attribute_utxo_accuracy(bb, wb)
     role_accuracy        = round(role_matches / max(matched, 1)   * 100, 2)
     overall_role_success = round(role_matches / max(len(bb.participants), 1) * 100, 2)
+    taker_match          = True if taker_matches == 1 else False
 
     result = {
         "txid":                   bb.txid,
@@ -231,7 +319,9 @@ def compare_coinjoin_objects(bb, wb, *, detailed: bool = False) -> Dict[str, Any
         "participants_wb":        len(wb.participants),
         "matched_participants":   matched,
         "role_accuracy":          role_accuracy,
+        "utxo_accuracy":          utxo_accuracy,
         "overall_role_success":   overall_role_success,
+        "taker_match":            taker_match,
         "blackbox_cj_amount":     bb.cj_amount,
         "whitebox_cj_amount":     wb.cj_amount,
         "blackbox_fee":           bb.miner_fee,

@@ -1,0 +1,64 @@
+from __future__ import annotations
+
+from decimal import Decimal, getcontext
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Decimal / denomination setup
+# ─────────────────────────────────────────────────────────────────────────────
+getcontext().prec = 30                        # plenty for 64‑bit ints
+SAT_MULT = Decimal('100000000')               # BTC → satoshi
+SAT      = Decimal('1')                       # one satoshi (after ×100 M)
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Sudoku decomposition helpers
+# ─────────────────────────────────────────────────────────────────────────────
+
+def to_sat(value):
+    return (Decimal(str(value)) * SAT_MULT).quantize(SAT)
+
+def vin_value(vin, tx_map):
+    prev = tx_map[vin['txid']]['tx']
+    return to_sat(next(o['value'] for o in prev['vout'] if o['n'] == vin['vout']))
+
+def prepare_inputs_outputs(tx, tx_map):
+    inputs = [{'vin': v, 'value': vin_value(v, tx_map)} for v in tx['vin']]
+    outputs = [{'n': o['n'], 'value': to_sat(o['value'])} for o in tx['vout']]
+    return inputs, outputs
+
+def classify_outputs(outputs):
+    # CoinJoin value is the most common output value
+    cj_val = max({o['value'] for o in outputs}, key=lambda x: sum(1 for o in outputs if o['value'] == x))
+    cj_outs = [o for o in outputs if o['value'] == cj_val]
+    ch_outs = [o for o in outputs if o['value'] != cj_val]
+    return cj_val, cj_outs, ch_outs
+
+def is_valid_cj_structure(cj_outs, ch_outs):
+    N = len(cj_outs)
+    return N != 0 and len(ch_outs) in {N, N - 1}
+
+def calculate_miner_fee(inputs, outputs):
+    return sum(i['value'] for i in inputs) - sum(o['value'] for o in outputs)
+
+def calculate_target_sum(miner_fee):
+    return -miner_fee
+
+def build_parts(maker_cj_outs, maker_changes, taker_cj, taker_change):
+    parts = (
+        [{'role': 'maker', 'cj': cj, 'change': ch} for cj, ch in zip(maker_cj_outs, maker_changes)]
+        + [{'role': 'taker', 'cj': taker_cj, 'change': taker_change}]
+    )
+    # Sort by output value + change value (descending)
+    parts.sort(key=lambda p: p['cj']['value'] + (p['change']['value'] if p['change'] else Decimal(0)), reverse=True)
+    return parts
+
+def canonical_key(part_list):
+    makers = []
+    for p in part_list:
+        inp_key = tuple(sorted(f"{i['vin']['txid']}:{i['vin']['vout']}" for i in p.get('inputs', [])))
+        ch_idx = p['change']['n'] if p['change'] else -1
+        if p['role'] == 'maker':
+            makers.append((inp_key, ch_idx))
+        else:
+            taker = (inp_key, ch_idx)
+    makers.sort()
+    return taker, tuple(makers)

@@ -19,6 +19,7 @@ class TxInput:
     txid: str  # Previous transaction ID
     vout: int  # Previous output index
     value: float  # BTC value
+    confidence: float = 0
     address: Optional[str] = None  # Source address if known
     client: Optional[str] = None  # Owner client if known
 
@@ -28,10 +29,14 @@ class TxOutput:
     """A single transaction output."""
     n: int  # Output index
     value: float  # BTC value
+    confidence: float = 0
     address: Optional[str] = None  # Destination address if known
     output_txid: Optional[str] = None  # Transaction ID if spent
     client: Optional[str] = None  # Owner client if known
     is_change: bool = False  # Whether this is likely a change output
+
+    def __hash__(self):
+        return hash(self.address)
 
 
 @dataclass
@@ -60,6 +65,7 @@ class CoinJoinParticipant:
         return self.cj_output.value + (self.change_output.value if self.change_output else 0)
 
 
+# noinspection PyTypeChecker
 @dataclass
 class CoinJoin:
     """
@@ -73,7 +79,11 @@ class CoinJoin:
     tx: Dict[str, Any]  # Full transaction data
     participants: List[CoinJoinParticipant] = field(default_factory=list)  # All participants
     meta: Dict[str, Any] = field(default_factory=dict)  # Optional metadata
-    
+    cj_outs: Set[TxOutput] = field(default_factory=set) # Newly added field used in chain attribution.
+    # Refactor to populate this when creating the coinjoin and not assigning cj_outs to participants randomly
+    # to be considered
+
+
     @property
     def input_clients(self) -> Set[str]:
         """Get all client IDs that provided inputs."""
@@ -104,7 +114,9 @@ class CoinJoin:
         """Get the CoinJoin amount (equal outputs)."""
         if not self.participants:
             return 0.0
-        return self.participants[0].cj_output.value
+        if not len(self.cj_outs):
+            return self.participants[0].cj_output.value
+        return list(self.cj_outs)[0].value
     
     @property
     def miner_fee(self) -> float:
@@ -331,6 +343,17 @@ class CoinJoin:
                 result[p.change_output.n] = p.client
         
         return result
+
+    def prepare_for_attribution(self):
+        """
+        Strips randomly assigned CJ outputs of the participants to be redistributed again.
+        Returns:
+        """
+        self.cj_outs: Set[TxOutput] = set()
+        for p in self.participants:
+            if p.cj_output:
+                self.cj_outs.add(p.cj_output)
+                p.cj_output = None
 
 
 # Visualization utility for CoinJoin model

@@ -11,7 +11,7 @@ if project_root not in sys.path:
 from joinmarket.visualisation.cj_flow_graph_data import CoinJoinGraphBuilder
 from joinmarket.blackbox.generate_report import write_html_report
 from joinmarket.blackbox.parse_blockchain import detect_coinjoin_txs
-from joinmarket.blackbox.joinmarket_sudoku import solve_joinmarket_sudoku
+from joinmarket.blackbox.coinjoin_sudoku.joinmarket_sudoku import solve_sudoku_for_coinjoin_set
 from joinmarket.blackbox.load_blockchain import load_blocks
 
 def main():
@@ -43,7 +43,7 @@ def main():
     print(f"Found {len(coinjoins)} potential coinjoin transactions")
     
     print("Analyzing coinjoins...")
-    coinjoin_results = solve_joinmarket_sudoku(coinjoins, tx_map)
+    coinjoin_results = solve_sudoku_for_coinjoin_set(coinjoins, tx_map)
     print(f"Analyzed {len(coinjoin_results)} coinjoin transactions")
     
     print("Building visualization...")

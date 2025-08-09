@@ -15,6 +15,21 @@
     <div class="stat-box"><strong>Participant Match Rate:</strong> {{ report_data.object_comparison.participant_match_rate }}%</div>
     <div class="stat-box"><strong>Avg. Taker Match:</strong> {{ report_data.object_comparison.taker_match_avg }}%</div>
     <div class="stat-box"><strong>Avg. UTXO Attribution Accuracy:</strong> {{ report_data.object_comparison.utxo_accuracy_avg }}%</div>
+    <div class="stat-box"><strong>Taker Mapping Consistency (occurrences):</strong>
+        {% if report_data.object_comparison.taker_mapping_occurrence_consistency is not none %}
+            {{ report_data.object_comparison.taker_mapping_occurrence_consistency }}%
+        {% else %}N/A{% endif %}
+    </div>
+    <div class="stat-box"><strong>Taker Mapping Consistency (clients):</strong>
+        {% if report_data.object_comparison.taker_mapping_client_consistency is not none %}
+            {{ report_data.object_comparison.taker_mapping_client_consistency }}%
+        {% else %}N/A{% endif %}
+    </div>
+    <div class="stat-box"><strong>Unique WB/BB Taker Ratio:</strong>
+        {% if report_data.object_comparison.taker_client_wb_bb_ratio is not none %}
+            {{ report_data.object_comparison.taker_client_wb_bb_ratio }}
+        {% else %}N/A{% endif %}
+    </div>
 </div>
 
 <h3>Blackbox CoinJoin Object Statistics</h3>

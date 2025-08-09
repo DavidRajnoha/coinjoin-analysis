@@ -1,7 +1,7 @@
 """
 Helpers for aggregating and building unified CoinJoin report data.
 """
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 import pandas as pd
 
 from joinmarket.common.chain_based_attributor import ChainBasedAttributor
@@ -23,6 +23,10 @@ def aggregate_object_comparison(blackbox_cj_objs, whitebox_cj_objs):
         tx["wb_taker_clients"] = get_taker_identities(whitebox_cj_objs, txid)
         tx["bb_taker_clients"] = get_taker_identities(blackbox_cj_objs, txid)
 
+    # Compute BB↔WB taker client mapping metrics across the entire dataset
+    taker_metrics = compute_taker_client_mapping_metrics(obj_comparison_data.get("obj_comparison", []))
+    obj_comparison_data.update(taker_metrics)
+
     return obj_comparison_data
 
 
@@ -40,6 +44,88 @@ def get_taker_identities(cj_objs, txid):
                 taker_clients.append(participant.client)
 
     return ", ".join(taker_clients) if taker_clients else "None"
+
+def _parse_single_client_id(id_str: Optional[str]) -> Optional[str]:
+    """Return a single client id if the string represents exactly one client; otherwise None.
+
+    Rules:
+    - Accept non-empty single client id (no comma), not equal to "Unknown" or "None".
+    - If multiple clients are present (comma-separated), return None (skip occurrence).
+    """
+    if not id_str:
+        return None
+    s = id_str.strip()
+    if not s or s in ("Unknown", "None"):
+        return None
+    # If comma present, treat as multiple clients => skip
+    if "," in s:
+        return None
+    return s
+
+def compute_taker_client_mapping_metrics(per_tx_list: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """Compute mapping consistency metrics using obj_comparison per-tx entries.
+
+    Primary metric (occurrence-level): For each BB client, after establishing the first
+    BB→WB mapping (by first valid occurrence), count subsequent valid occurrences as
+    consistent if they map to the same WB client, inconsistent otherwise.
+
+    Secondary metric (client-level): Percentage of BB clients that never remap after
+    the first mapping.
+
+    Also compute the ratio of unique WB to unique BB taker clients over valid occurrences.
+    """
+    # Ensure deterministic order (by block height then txid if available)
+    txs = sorted(per_tx_list, key=lambda x: (x.get("block_height", 0), x.get("txid", "")))
+
+    bb_first_map: dict[str, str] = {}
+    bb_inconsistent: set[str] = set()
+    clients_mapped: set[str] = set()
+
+    occ_total = 0
+    occ_consistent = 0
+
+    unique_bb: set[str] = set()
+    unique_wb: set[str] = set()
+
+    for tx in txs:
+        bb_id = _parse_single_client_id(tx.get("bb_taker_clients"))
+        wb_id = _parse_single_client_id(tx.get("wb_taker_clients"))
+        # Skip ambiguous or unmapped cases per requirements
+        if not bb_id or not wb_id:
+            continue
+
+        unique_bb.add(bb_id)
+        unique_wb.add(wb_id)
+
+        if bb_id not in bb_first_map:
+            bb_first_map[bb_id] = wb_id
+            clients_mapped.add(bb_id)
+        else:
+            occ_total += 1
+            if wb_id == bb_first_map[bb_id]:
+                occ_consistent += 1
+            else:
+                bb_inconsistent.add(bb_id)
+
+    client_total = len(clients_mapped)
+    client_consistent_count = client_total - len(bb_inconsistent)
+
+    # Occurrence-level percentage: if there were no post-first occurrences but at least
+    # one client mapped, treat as perfectly consistent (100.0). If no clients, None.
+    if occ_total > 0:
+        occ_pct = round(occ_consistent / max(occ_total, 1) * 100, 2)
+    else:
+        occ_pct = 100.0 if client_total > 0 else None
+
+    client_pct = round(client_consistent_count / max(client_total, 1) * 100, 2) if client_total > 0 else None
+
+    ratio = round(len(unique_wb) / max(len(unique_bb), 1), 4) if (unique_bb or unique_wb) else None
+
+    return {
+        "taker_mapping_occurrence_consistency": occ_pct,
+        "taker_mapping_client_consistency": client_pct,
+        "taker_client_wb_bb_ratio": ratio,
+    }
 
 def aggregate_participant_breakdown(obj_comparison_data, whitebox_cj_objs):
     detailed_participant_breakdown = []

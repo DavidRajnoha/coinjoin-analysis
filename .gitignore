@@ -7,3 +7,5 @@ external
 pychache
 __pycache__/
 *.py[cod]
+subset_cache/
+joinmarket/subset_cache

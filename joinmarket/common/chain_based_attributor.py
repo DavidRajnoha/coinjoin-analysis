@@ -7,139 +7,126 @@ from joinmarket.common.output_attribution import OutputAttribution
 class ChainBasedAttributor:
     """Traces identities through CoinJoin chains."""
 
+    def __init__(self):
+        self.current_child_txids = None
+        self.current_parent_cj = None
+        self.current_child_cj = None
+        self.current_child_participant = None
+        self.current_child_tx_in = None
+        self.chain = None
+
     def attribute_chain(self, chain):
         """Main entry point - process all connections in a chain."""
         print(f"\nProcessing chain: {chain.id}")
+        self.chain = chain
 
         for parent_txid, child_txids in chain.connections.items():
-            parent_cj = self._get_coinjoin(chain, parent_txid)
+            parent_cj = self._get_taker_coinjoin(chain, parent_txid)
             if not parent_cj:
                 continue
+            self.current_parent_cj = parent_cj
+            self.current_child_txids = child_txids
 
-            # Non-destructive: snapshot parent CJ state and restore it after processing all children
-            parent_snapshot = self._snapshot_cj(parent_cj)
-            parent_cj.prepare_for_attribution()
+            self._process_parent_cj()
 
-            for child_txid in child_txids:
-                child_cj = self._get_coinjoin(chain, child_txid)
-                if not child_cj:
-                    continue
+    def _process_parent_cj(self):
+        """
+        We have: Selected parent coinjoin that we want to attribute.
+        We want: Look at each of its childs and try to attribute the pair.
+        Assumption: The links in a chain all through the "taker" connections
+        """
 
-                print(f"  Connection: {parent_txid[:8]} -> {child_txid[:8]}")
-                # Non-destructive child processing as well
-                child_snapshot = self._snapshot_cj(child_cj)
-                try:
-                    self._process_connection(parent_cj, child_cj, chain.analysis_type)
-                finally:
-                    self._restore_cj(child_cj, child_snapshot)
+        self.current_parent_cj.prepare_for_attribution()
 
+        for child_txid in self.current_child_txids:
+            child_cj = self._get_taker_coinjoin(self.chain, child_txid)
+            if child_cj:
+                self.current_child_cj = child_cj
+                self._process_taker_connection()
 
-
-            # Restore parent after all its children processed
-            self._restore_cj(parent_cj, parent_snapshot)
-
-    def _process_connection(self, parent_cj, child_cj, analysis_type):
-        """Process a single parent->child connection."""
-        # Find takers in child transaction
-        for child_participant in child_cj.participants:
-            if child_participant.role != 'taker':
-                continue
-
-            # Find what this taker spent from parent
+    def _process_taker_connection(self):
+        """
+        We have: A single parent->child connection.
+        We want: Find the output-input connection and process that.
+        Assumption: The links in a chain all through the "taker" connections.
+        """
+        for child_participant in self.current_child_cj.participants:
             for tx_in in child_participant.inputs:
-                if tx_in.txid == parent_cj.txid:
+                if tx_in.txid == self.current_parent_cj.txid:
                     # This taker spent from parent - attribute that output
-                    self._attribute_parent_output(
-                        parent_cj, tx_in, child_participant
-                    )
-                if tx_in.txid == parent_cj.txid:
-                    self._attribute_change_output(
-                        parent_cj, tx_in, child_participant
-                    )
-        pass
+                    self.current_child_participant = child_participant
+                    self.current_child_tx_in = tx_in
 
-    def _attribute_parent_output(self, parent_cj, tx_in, child_participant):
-        """Find and attribute the specific output in parent CJ."""
-        # TODO: Find output by index in parent_cj
-        # This depends on your data structure
+                    self._attribute_parent_output()
+                    self._attribute_change_output()
+
+    def _attribute_parent_output(self):
+        """
+        We have: Output in parent and input in child that match.
+        We want: Find that output in the "deassigned" set in the parent cj and assign it to correct participant
+        """
+        cj_out_taker = self._get_matching_cj_out()
+
+        if cj_out_taker:
+            self._reassign_cj_out(cj_out_taker)
+
+    def _get_matching_cj_out(self):
         cj_out_taker: Optional[TxOutput] = None
-
-        for cj_out in parent_cj.cj_outs:
-            if cj_out.n == tx_in.vout:
+        for cj_out in self.current_parent_cj.cj_outs:
+            if cj_out.n == self.current_child_tx_in.vout:
                 cj_out_taker = cj_out
-                cj_out_taker.confidence = tx_in.confidence if tx_in.confidence else 1
+                cj_out_taker.confidence = self.current_child_tx_in.confidence if self.current_child_tx_in.confidence else 1
+        return cj_out_taker
 
-        if not cj_out_taker:
-            return
+    def _reassign_cj_out(self, cj_out_taker):
+        """
+        We have: Identified a particular coinjoin output that belongs to the taker participant in the parent coinjoin based on the chain.
+        We want: Assign that output to the "emptied" cj_output in the participant with the taker label.
+        (We currently strip the cj_outputs of the participants and reassign them here. We can not strip the roles, as
+        those are already correctly assigned with the inputs).
+        """
+        for participant in self.current_parent_cj.participants:
+            if participant.role != 'taker':
+                continue
+            participant.cj_output = cj_out_taker
 
-        for participant in parent_cj.participants:
-            if participant.role == 'taker':
-                participant.cj_output = cj_out_taker
+            # Identity is passed from the parent to the child if connection found
+            participant.client = participant.client or f"taker_{self.current_parent_cj.block_height}_{self.current_parent_cj.txid[:4]}"
 
-                # Identity is passed from the parent to the child if connection found
-                participant.client = participant.client or f"taker_{parent_cj.block_height}_{parent_cj.txid[:4]}"
+            self.current_child_participant.client = (
+                self.current_child_participant.client) if self.current_child_participant.client else participant.client
+            print(f"Connected {self.current_parent_cj.txid[:8]} cj_out {cj_out_taker.n} to "
+                  f"child tx {self.current_child_tx_in.txid[:8]} input {self.current_child_tx_in.vout}")
 
-                child_participant.client = child_participant.client if child_participant.client else participant.client
-                print(f"Connected {parent_cj.txid[:8]} cj_out {cj_out_taker.n} to "
-                      f"child tx {tx_in.txid[:8]} input {tx_in.vout}")
-
-    def _attribute_change_output(self, parent_cj, tx_in, child_participant):
-        ch_out_taker: Optional[TxOutput] = None
-
-        ch_outs = {participant.change_output for participant in parent_cj.participants}
-
-        for ch_out in ch_outs:
-            if ch_out and ch_out.n == tx_in.vout:
-                ch_out_taker = ch_out
-
+    def _attribute_change_output(self):
+        ch_out_taker = self._get_matching_change_output()
         if not ch_out_taker:
             return
 
-        for participant in parent_cj.participants:
-            # Only propagate existing identity; do NOT synthesize one
-            if getattr(participant, 'client', None) and not getattr(child_participant, 'client', None):
-                child_participant.client = participant.client
-            print(f"Connected {parent_cj.txid[:8]} cj_out {ch_out_taker.n} to "
-                  f"child tx {tx_in.txid[:8]} input {tx_in.vout}")
+        for participant in self.current_parent_cj.participants:
+            if participant.role != 'taker':
+                continue
 
-    def _get_coinjoin(self, chain, txid):
+            # Only propagate existing identity; do NOT synthesize one
+            if getattr(participant, 'client', None) and not getattr(self.current_child_participant, 'client', None):
+                self.current_child_participant.client = participant.client
+            print(f"Connected {self.current_parent_cj.txid[:8]} cj_out {ch_out_taker.n} to "
+                  f"child tx {self.current_child_tx_in.txid[:8]} input {self.current_child_tx_in.vout}")
+
+
+    def _get_matching_change_output(self):
+        ch_out_taker: Optional[TxOutput] = None
+        ch_outs = {participant.change_output for participant in self.current_parent_cj.participants}
+
+        for ch_out in ch_outs:
+            if ch_out and ch_out.n == self.current_child_tx_in.vout:
+                ch_out_taker = ch_out
+        return ch_out_taker
+
+    def _get_taker_coinjoin(self, chain, txid):
         """Helper to get CoinJoin from chain."""
         node = chain._nodes_by_txid.get(txid)
         return node.get_coinjoin() if node else None
 
-    # ----------------------, then
-    # Snapshot/Restore helpers
-    # ----------------------
-    def _snapshot_cj(self, cj: Any) -> Dict[str, Any]:
-        """Capture the minimal mutable state we touch so we can restore it.
-
-        We snapshot per-participant fields and cj.cj_outs.
-
-        NOTE: We intentionally do NOT snapshot 'client', 'cj_output', or 'change_output'
-        so that attribution results persist across chain processing.
-        """
-        parts: List[Dict[str, Any]] = []
-        for p in getattr(cj, 'participants', []) or []:
-            parts.append({
-                'participant': p,
-                # INTENTIONAL: do NOT snapshot 'cj_output', 'change_output', or 'client'
-                # so attribution results persist
-            })
-        # Store the exact object identity of cj_outs (set of TxOutput) to restore reference
-        cj_outs_copy = set(getattr(cj, 'cj_outs', set()) or set())
-        return {
-            'participants': parts,
-            'cj_outs': cj_outs_copy,
-        }
-
-    def _restore_cj(self, cj: Any, snapshot: Dict[str, Any]) -> None:
-        """Restore state saved by _snapshot_cj.
-
-        NOTE: We intentionally do NOT restore 'client', 'cj_output', 'change_output', or 'cj_outs'
-        so that attribution results persist across chain processing.
-        """
-        if not snapshot:
-            return
-        # INTENTIONAL: do NOT restore participant attribution fields or cj_outs
-        # so that identity and output attribution persist
-        pass
+    def _get_maker_coinjoin(self):
+        return self.cj_objects

@@ -1,6 +1,6 @@
 from __future__ import annotations
 from typing import Dict, List, Set, Optional, Any, Tuple, Iterator
-from collections import defaultdict
+from collections import defaultdict, deque
 import uuid
 import json
 from abc import ABC, abstractmethod
@@ -148,6 +148,25 @@ class CoinJoinTree:
                         nodes_dict[node.txid] = node
             self._nodes_cache = list(nodes_dict.values())
         return self._nodes_cache
+
+    def bfs_traverse(self) -> Iterator[CoinJoinNode]:
+        """Breadth-first traversal over the tree's nodes.
+
+        Starts from all root_nodes and visits children level by level.
+        Ensures each txid is yielded at most once in case of shared subtrees.
+        """
+        seen: Set[str] = set()
+        queue: deque[CoinJoinNode] = deque(self.root_nodes)
+        while queue:
+            node = queue.popleft()
+            txid = getattr(node, 'txid', None)
+            if txid is None or txid in seen:
+                # Skip if missing txid or already visited
+                continue
+            seen.add(txid)
+            yield node
+            for child in getattr(node, 'children', []) or []:
+                queue.append(child)
     
     @property
     def coinjoins(self) -> List:

@@ -43,7 +43,7 @@ class TxOutput:
 class CoinJoinParticipant:
     """
     A single participant in a CoinJoin transaction.
-    
+
     Each participant contributes inputs and receives outputs (CoinJoin amount and possibly change).
     The role can be 'maker', 'taker', or 'unknown' depending on the information available.
     """
@@ -53,6 +53,12 @@ class CoinJoinParticipant:
     role: str = "unknown"  # 'maker', 'taker', or 'unknown'
     client: Optional[str] = None  # Client ID if known
     delta: float = 0.0  # Difference between outputs and inputs (negative = fee paid)
+    # HEURISTIC: set to True if this participant was formed by a heuristic due to missing data mapping
+    heuristic: bool = False
+    # Fidelity bond information (JoinMarket-specific, whitebox only)
+    fidelity_bond_enabled: Optional[bool] = None  # Whether this participant has a fidelity bond
+    fidelity_bond_amount: Optional[int] = None  # Bond amount in satoshis
+    fidelity_bond_locktime: Optional[str] = None  # Locktime in "YYYY-MM" format
     
     @property
     def input_value(self) -> float:
@@ -139,6 +145,29 @@ class CoinJoin:
         Returns:
             A CoinJoin instance with full attribution
         """
+        # Diagnostics counters (print-based) to understand why inputs fail attribution
+        diag = {
+            'inputs_total': 0,
+            'missing_prev_tx': 0,
+            'missing_prev_out': 0,
+            'missing_addr': 0,
+            'has_addresses_list': 0,
+            'unmapped_addr': 0,
+            'clients_no_cj_out': 0,
+            # Output-side diagnostics
+            'outputs_total': 0,
+            'outputs_unmapped': 0,
+            'cj_outputs_total': 0,
+            'clients_mismatch': 0,
+            # Heuristic diagnostics
+            'heuristic_assignments': 0,
+        }
+        # Small sample store for readability
+        diag_samples: Dict[str, List[Any]] = defaultdict(list)
+        def _sample(key: str, value: Any, limit: int = 3):
+            arr = diag_samples[key]
+            if len(arr) < limit:
+                arr.append(value)
         # Find the CoinJoin denomination (most common output value)
         output_values = [o['value'] for o in tx['vout']]
         value_counts = {}
@@ -155,6 +184,7 @@ class CoinJoin:
         all_inputs = []
         
         for i, vin in enumerate(tx['vin']):
+            diag['inputs_total'] += 1
             if 'txid' not in vin or 'vout' not in vin:
                 continue
                 
@@ -166,16 +196,33 @@ class CoinJoin:
                 prev_tx = tx.prev_tx_map[vin['txid']]['tx']
                 
             if not prev_tx:
+                diag['missing_prev_tx'] += 1
+                _sample('missing_prev_tx', {'txin_txid': vin.get('txid'), 'vout': vin.get('vout')})
                 continue
                 
             # Get previous output details
             prev_out = next((o for o in prev_tx['vout'] if o['n'] == vin['vout']), None)
             if not prev_out:
+                diag['missing_prev_out'] += 1
+                _sample('missing_prev_out', {'txin_txid': vin.get('txid'), 'vout': vin.get('vout')})
                 continue
                 
             value = prev_out.get('value', 0.0)
-            addr = prev_out.get('scriptPubKey', {}).get('address')
+            spk = prev_out.get('scriptPubKey', {}) or {}
+            addr = spk.get('address')
+            # If no single address but there is an addresses list, record that for diagnostics
+            if not addr:
+                addrs = spk.get('addresses')
+                if isinstance(addrs, list) and addrs:
+                    diag['has_addresses_list'] += 1
+                    _sample('has_addresses_list', {'txin_txid': vin.get('txid'), 'addr0': addrs[0]})
+                else:
+                    diag['missing_addr'] += 1
+                    _sample('missing_addr', {'txin_txid': vin.get('txid')})
             client = address_to_client.get(addr) if addr else None
+            if addr and client is None:
+                diag['unmapped_addr'] += 1
+                _sample('unmapped_addr', {'addr': addr})
             
             if addr:
                 input_addrs.add(addr)
@@ -218,6 +265,26 @@ class CoinJoin:
                 cj_outputs.append(output)
             elif is_change:
                 change_outputs.append(output)
+        # Output-side diagnostics aggregation
+        diag['outputs_total'] = len(tx['vout'])
+        diag['outputs_unmapped'] = sum(1 for o in cj_outputs + change_outputs if o.client is None)
+        diag['cj_outputs_total'] = len(cj_outputs)
+        # Sample summaries only (limit size)
+        inputs_counts_sample = {c: len(v) for c, v in list(inputs_by_client.items())[:5]}
+        cj_counts_by_client = defaultdict(int)
+        for o in cj_outputs:
+            if o.client:
+                cj_counts_by_client[o.client] += 1
+        cj_counts_sample = dict(list(cj_counts_by_client.items())[:5])
+        _sample('inputs_by_client_counts', inputs_counts_sample)
+        _sample('cj_outputs_by_client', cj_counts_sample)
+        # Clients that have inputs but no CJ output mapped
+        clients_with_inputs = set(inputs_by_client.keys())
+        clients_with_cj_out = set([o.client for o in cj_outputs if o.client])
+        mismatch = sorted(list(clients_with_inputs - clients_with_cj_out))
+        diag['clients_mismatch'] = len(mismatch)
+        for m in mismatch[:5]:
+            _sample('clients_mismatch', m)
         
         # Create participants
         participants = []
@@ -225,6 +292,7 @@ class CoinJoin:
         used_cj_outputs = set()
         used_change_outputs = set()
         
+        matched_clients = set()
         # First, create participants for clients we can fully attribute
         for client, client_inputs in inputs_by_client.items():
             # Find matching CoinJoin output
@@ -232,6 +300,8 @@ class CoinJoin:
                                if o.client == client and o.n not in used_cj_outputs), None)
             
             if not client_cj_out:
+                diag['clients_no_cj_out'] += 1
+                _sample('clients_no_cj_out', client)
                 continue
                 
             # Find matching change output if any
@@ -267,6 +337,39 @@ class CoinJoin:
                 client=client,
                 delta=delta
             ))
+            matched_clients.add(client)
+
+        # HEURISTIC: attribute unmapped CJ outputs to clients with inputs but no CJ output mapping
+        # This is a temporary workaround to compensate for missing keys.json entries (data gathering issue).
+        # It attaches the first available unmapped CJ output to each such client, without guessing change.
+        clients_needing_heuristic = [c for c in inputs_by_client.keys() if c not in matched_clients]
+        for client in clients_needing_heuristic:
+            # pick an unmapped, unused CJ output
+            candidate = next((o for o in cj_outputs if o.client is None and o.n not in used_cj_outputs), None)
+            if not candidate:
+                break
+            client_inputs = inputs_by_client[client]
+            for inp in client_inputs:
+                used_inputs.add((inp.txid, inp.vout))
+            used_cj_outputs.add(candidate.n)
+
+            input_value = sum(inp.value for inp in client_inputs)
+            output_value = candidate.value
+            delta = output_value - input_value
+            role = "maker" if delta >= 0 else "taker"
+
+            participants.append(CoinJoinParticipant(
+                inputs=client_inputs,
+                cj_output=candidate,
+                change_output=None,
+                role=role,
+                client=client,
+                delta=delta,
+                heuristic=True,
+            ))
+            diag['heuristic_assignments'] += 1
+            print("HEURISTIC: assigned unmapped CJ output to client due to missing mapping",
+                  {'tx': txid, 'client': client, 'cj_out_n': candidate.n, 'value': candidate.value, 'addr': candidate.address})
         
         # For remaining unattributed outputs, create participants with empty inputs
         for cj_out in cj_outputs:
@@ -289,13 +392,38 @@ class CoinJoin:
                 client=cj_out.client
             ))
         
-        return cls(
+        cj_obj = cls(
             txid=txid,
             block_height=block.get('height', 0),
             tx=tx,
             participants=participants,
             meta={'whitebox_analysis': True}
         )
+        # Emit unmapped CJ outputs for quick inspection
+        unmapped_cj = [
+            {'n': o.n, 'value': o.value, 'address': o.address}
+            for o in cj_outputs if o.client is None
+        ]
+        if unmapped_cj:
+            print(
+                "from_whitebox unmapped_cj_outputs:",
+                {
+                    'tx': txid,
+                    'items': unmapped_cj[:10]  # limit noise
+                }
+            )
+
+        # Emit compact per-tx diagnostic line if any issues observed
+        if any(diag[k] for k in diag if k != 'inputs_total'):
+            print(
+                "from_whitebox diag:",
+                {
+                    'tx': txid,
+                    **diag,
+                    'samples': {k: v for k, v in diag_samples.items()}
+                }
+            )
+        return cj_obj
     
     def enrich_with_client_info(self, address_to_client: Dict[str, str]) -> None:
         """

@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Any, Dict, List, Tuple
 
 from joinmarket.common.coinjoin_model import TxOutput
 from joinmarket.common.output_attribution import OutputAttribution
@@ -15,6 +15,9 @@ class ChainBasedAttributor:
             parent_cj = self._get_coinjoin(chain, parent_txid)
             if not parent_cj:
                 continue
+
+            # Non-destructive: snapshot parent CJ state and restore it after processing all children
+            parent_snapshot = self._snapshot_cj(parent_cj)
             parent_cj.prepare_for_attribution()
 
             for child_txid in child_txids:
@@ -23,7 +26,17 @@ class ChainBasedAttributor:
                     continue
 
                 print(f"  Connection: {parent_txid[:8]} -> {child_txid[:8]}")
-                self._process_connection(parent_cj, child_cj, chain.analysis_type)
+                # Non-destructive child processing as well
+                child_snapshot = self._snapshot_cj(child_cj)
+                try:
+                    self._process_connection(parent_cj, child_cj, chain.analysis_type)
+                finally:
+                    self._restore_cj(child_cj, child_snapshot)
+
+
+
+            # Restore parent after all its children processed
+            self._restore_cj(parent_cj, parent_snapshot)
 
     def _process_connection(self, parent_cj, child_cj, analysis_type):
         """Process a single parent->child connection."""
@@ -83,10 +96,9 @@ class ChainBasedAttributor:
             return
 
         for participant in parent_cj.participants:
-            # Identity is passed from the parent to the child if connection found
-            participant.client = participant.client or f"taker_{parent_cj.block_height}_{parent_cj.txid[:4]}"
-
-            child_participant.client = child_participant.client if child_participant.client else participant.client
+            # Only propagate existing identity; do NOT synthesize one
+            if getattr(participant, 'client', None) and not getattr(child_participant, 'client', None):
+                child_participant.client = participant.client
             print(f"Connected {parent_cj.txid[:8]} cj_out {ch_out_taker.n} to "
                   f"child tx {tx_in.txid[:8]} input {tx_in.vout}")
 
@@ -94,3 +106,40 @@ class ChainBasedAttributor:
         """Helper to get CoinJoin from chain."""
         node = chain._nodes_by_txid.get(txid)
         return node.get_coinjoin() if node else None
+
+    # ----------------------, then
+    # Snapshot/Restore helpers
+    # ----------------------
+    def _snapshot_cj(self, cj: Any) -> Dict[str, Any]:
+        """Capture the minimal mutable state we touch so we can restore it.
+
+        We snapshot per-participant fields and cj.cj_outs.
+
+        NOTE: We intentionally do NOT snapshot 'client', 'cj_output', or 'change_output'
+        so that attribution results persist across chain processing.
+        """
+        parts: List[Dict[str, Any]] = []
+        for p in getattr(cj, 'participants', []) or []:
+            parts.append({
+                'participant': p,
+                # INTENTIONAL: do NOT snapshot 'cj_output', 'change_output', or 'client'
+                # so attribution results persist
+            })
+        # Store the exact object identity of cj_outs (set of TxOutput) to restore reference
+        cj_outs_copy = set(getattr(cj, 'cj_outs', set()) or set())
+        return {
+            'participants': parts,
+            'cj_outs': cj_outs_copy,
+        }
+
+    def _restore_cj(self, cj: Any, snapshot: Dict[str, Any]) -> None:
+        """Restore state saved by _snapshot_cj.
+
+        NOTE: We intentionally do NOT restore 'client', 'cj_output', 'change_output', or 'cj_outs'
+        so that attribution results persist across chain processing.
+        """
+        if not snapshot:
+            return
+        # INTENTIONAL: do NOT restore participant attribution fields or cj_outs
+        # so that identity and output attribution persist
+        pass

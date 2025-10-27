@@ -12,6 +12,7 @@ from joinmarket.comparison.coinjoin_chain_analysis import (
 )
 from joinmarket.comparison.compare_coinjoin import compare_coinjoin_chains
 from joinmarket.comparison.chain_visualization import generate_colored_chain_comparison
+import os
 
 def aggregate_txid_comparison(blackbox_results, whitebox_data):
     return generate_comparison_data(blackbox_results, whitebox_data)
@@ -191,6 +192,237 @@ def aggregate_colored_tree_comparisons(chain_comparison_summary, chain_map):
             pair['colored_tree_comparison'] = generate_colored_chain_comparison(bb_chain, wb_chain)
     return matched_pairs_details
 
+def _single_taker_for_txid(cj_objs, txid: str) -> Optional[str]:
+    return _parse_single_client_id(get_taker_identities(cj_objs, txid))
+
+def compute_chain_root_mapping_consistency(
+    chain_comparison_summary: Dict[str, Any],
+    chain_map: Dict[str, Any],
+    blackbox_cj_objs: List[Any],
+    whitebox_cj_objs: List[Any],
+) -> Dict[str, Any]:
+    """Compute chain-based taker root-mapping metrics using BFS traversal.
+
+    Process per matched chain pair (WB↔BB):
+    - Traverse the WB chain in BFS order.
+    - Establish wb_root_identity from the WB chain's ultimate root (pick among WB root_nodes by
+      earliest WB block height). Use the WB taker at that root txid; if missing, set
+      wb_root_identity = 'UNATTRIBUTABLE'.
+    - Establish bb_root_identity when first WB↔BB mapping is encountered during traversal; if BB taker
+      exists at the ultimate WB root txid, use that immediately as bb_root_identity.
+    - Count all visited WB nodes (and leaves) into totals regardless of BB mapping availability.
+    - When encountering the first node with both WB and BB single takers, set bb_root_identity.
+    - Compute two metric families (for nodes and leaves):
+      a) identification coverage: fraction of WB nodes whose BB taker matches the
+         established bb_root_identity (i.e., identified as part of the same chain taker).
+      b) strict consistency: fraction of WB nodes where both takers are present AND equal to their roots
+         (bb_id == bb_root AND wb_id == wb_root). If bb_root was never established, strict consistency
+         cannot be evaluated and such nodes are ignored.
+    """
+    matched = chain_comparison_summary.get('matched_chain_pairs', []) or []
+    if not matched:
+        return {
+            'chain_identification_coverage_nodes': None,
+            'chain_identification_coverage_leaves': None,
+            'chain_root_mapping_strict_consistency_nodes': None,
+            'chain_root_mapping_strict_consistency_leaves': None,
+        }
+
+    # Global aggregates across all matched pairs
+    node_total = 0                 # total WB nodes visited
+    leaf_total = 0                 # total WB leaf nodes visited
+    node_identified = 0            # WB nodes with any BB taker identified
+    leaf_identified = 0            # WB leaf nodes with any BB taker identified
+    node_strict_consistent = 0     # WB nodes strictly consistent with roots
+    leaf_strict_consistent = 0     # WB leaves strictly consistent with roots
+
+    for pair in matched:
+        bb_chain_id = pair.get('blackbox_chain_id')
+        wb_chain_id = pair.get('whitebox_chain_id')
+        if not bb_chain_id or not wb_chain_id:
+            continue
+
+        bb_chain = chain_map.get(bb_chain_id)
+        wb_chain = chain_map.get(wb_chain_id)
+        if not bb_chain or not wb_chain:
+            continue
+
+        wb_root_bb_identity: Optional[str] = None
+        bb_root_identity: Optional[str] = None
+
+        # Determine the WB ultimate root txid (by earliest WB block height among WB root nodes)
+        wb_roots = list(getattr(wb_chain, 'root_nodes', []) or [])
+        if wb_roots:
+            # Build quick lookup once for WB heights if not already
+            # Note: outside map may not exist anymore; rebuild lightweight here
+            wb_height_local = {cj.txid: getattr(cj, 'block_height', 0) for cj in whitebox_cj_objs}
+            wb_root_node = min(wb_roots, key=lambda n: (wb_height_local.get(getattr(n, 'txid', None), 0), getattr(n, 'txid', '')))
+            root_txid = getattr(wb_root_node, 'txid', None)
+            if root_txid:
+                wb_root_bb_identity = _single_taker_for_txid(blackbox_cj_objs, root_txid) or 'UNATTRIBUTABLE'
+                # If BB taker exists at this root, we can set bb_root immediately
+                bb_root_candidate = _single_taker_for_txid(blackbox_cj_objs, root_txid)
+                if bb_root_candidate:
+                    bb_root_identity = bb_root_candidate
+
+        # BFS over WB chain
+        for node in getattr(wb_chain, 'bfs_traverse', lambda: [])():
+            txid = getattr(node, 'txid', None)
+            if not txid:
+                continue
+
+            # WB taker identity for this node
+            wb_id = _single_taker_for_txid(whitebox_cj_objs, txid)
+
+            # Count totals regardless of BB mapping
+            node_total += 1
+            if getattr(node, 'is_leaf', False):
+                leaf_total += 1
+
+            # Try to get BB taker
+            bb_id = _single_taker_for_txid(blackbox_cj_objs, txid)
+
+            # Set BB root when first BB↔WB mapping encountered (both sides present)
+            if bb_root_identity is None and bb_id and wb_id:
+                bb_root_identity = bb_id
+
+            # Coverage: BB taker aligns with established bb_root_identity
+            if bb_root_identity and bb_id == bb_root_identity:
+                node_identified += 1
+                if getattr(node, 'is_leaf', False):
+                    leaf_identified += 1
+
+            # Strict consistency check requires both roots established and both sides present
+            if wb_root_bb_identity and bb_id:
+                if bb_id == wb_root_bb_identity:
+                    node_strict_consistent += 1
+                    if getattr(node, 'is_leaf', False):
+                        leaf_strict_consistent += 1
+
+    # Compute percentages
+    coverage_nodes = round(node_identified / max(node_total, 1) * 100, 2) if node_total > 0 else None
+    coverage_leaves = round(leaf_identified / max(leaf_total, 1) * 100, 2) if leaf_total > 0 else None
+    strict_nodes = round(node_strict_consistent / max(node_total, 1) * 100, 2) if node_total > 0 else None
+    strict_leaves = round(leaf_strict_consistent / max(leaf_total, 1) * 100, 2) if leaf_total > 0 else None
+
+    return {
+        'chain_identification_coverage_nodes': coverage_nodes,
+        'chain_identification_coverage_leaves': coverage_leaves,
+        'chain_root_mapping_strict_consistency_nodes': strict_nodes,
+        'chain_root_mapping_strict_consistency_leaves': strict_leaves,
+    }
+
+def compute_taker_cj_output_attribution_metrics(
+    blackbox_cj_objs: List[Any],
+    whitebox_cj_objs: List[Any],
+    blackbox_chains: List[Any],
+    whitebox_chains: List[Any],
+) -> Dict[str, Any]:
+    """Compute metrics for taker CoinJoin output attribution after chain attribution.
+
+    Measures two aspects:
+    1. Coverage: What percentage of taker participants have their cj_output successfully attributed?
+    2. Accuracy: How well does blackbox attribution match whitebox ground truth?
+
+    Args:
+        blackbox_cj_objs: CoinJoin objects from blackbox analysis (after chain attribution)
+        whitebox_cj_objs: CoinJoin objects from whitebox analysis (after chain attribution)
+        blackbox_chains: Identified chains from blackbox analysis
+        whitebox_chains: Identified chains from whitebox analysis
+
+    Returns:
+        Dictionary with coverage and accuracy metrics
+    """
+
+    # Coverage metrics for blackbox
+    bb_total_takers = 0
+    bb_attributed_takers = 0
+
+    for cj in blackbox_cj_objs:
+        for participant in getattr(cj, 'participants', []) or []:
+            if getattr(participant, 'role', None) == 'taker':
+                bb_total_takers += 1
+                if getattr(participant, 'cj_output', None) is not None:
+                    bb_attributed_takers += 1
+
+    # Coverage metrics for whitebox
+    wb_total_takers = 0
+    wb_attributed_takers = 0
+
+    for cj in whitebox_cj_objs:
+        for participant in getattr(cj, 'participants', []) or []:
+            if getattr(participant, 'role', None) == 'taker':
+                wb_total_takers += 1
+                if getattr(participant, 'cj_output', None) is not None:
+                    wb_attributed_takers += 1
+
+    # Calculate coverage percentages
+    bb_coverage = round(bb_attributed_takers / max(bb_total_takers, 1) * 100, 2) if bb_total_takers > 0 else None
+    wb_coverage = round(wb_attributed_takers / max(wb_total_takers, 1) * 100, 2) if wb_total_takers > 0 else None
+
+    # Accuracy metrics: compare BB vs WB for common transactions
+    common_txids = {getattr(cj, 'txid', None) for cj in blackbox_cj_objs} & \
+                   {getattr(cj, 'txid', None) for cj in whitebox_cj_objs}
+    common_txids.discard(None)
+
+    bb_txid_map = {getattr(cj, 'txid', None): cj for cj in blackbox_cj_objs}
+    wb_txid_map = {getattr(cj, 'txid', None): cj for cj in whitebox_cj_objs}
+
+    attribution_matches = 0
+    attribution_total = 0
+
+    for txid in common_txids:
+        bb_cj = bb_txid_map.get(txid)
+        wb_cj = wb_txid_map.get(txid)
+
+        if not bb_cj or not wb_cj:
+            continue
+
+        # Get taker cj_output attributions from both analyses
+        bb_taker_outputs = set()
+        wb_taker_outputs = set()
+
+        for participant in getattr(bb_cj, 'participants', []) or []:
+            if getattr(participant, 'role', None) == 'taker':
+                cj_out = getattr(participant, 'cj_output', None)
+                if cj_out is not None:
+                    output_n = getattr(cj_out, 'n', None)
+                    if output_n is not None:
+                        bb_taker_outputs.add(output_n)
+
+        for participant in getattr(wb_cj, 'participants', []) or []:
+            if getattr(participant, 'role', None) == 'taker':
+                cj_out = getattr(participant, 'cj_output', None)
+                if cj_out is not None:
+                    output_n = getattr(cj_out, 'n', None)
+                    if output_n is not None:
+                        wb_taker_outputs.add(output_n)
+
+        # Count matches: outputs attributed as taker in both BB and WB
+        if wb_taker_outputs:  # Only count if WB has attributions (ground truth)
+            for output_n in wb_taker_outputs:
+                attribution_total += 1
+                if output_n in bb_taker_outputs:
+                    attribution_matches += 1
+
+    # Calculate accuracy percentage
+    attribution_accuracy = round(attribution_matches / max(attribution_total, 1) * 100, 2) \
+                          if attribution_total > 0 else None
+
+    return {
+        'taker_cj_output_coverage_bb': bb_coverage,
+        'taker_cj_output_coverage_wb': wb_coverage,
+        'taker_cj_output_attribution_accuracy': attribution_accuracy,
+        'taker_cj_output_details': {
+            'bb_attributed_count': bb_attributed_takers,
+            'bb_total_takers': bb_total_takers,
+            'wb_attributed_count': wb_attributed_takers,
+            'wb_total_takers': wb_total_takers,
+            'common_tx_attribution_matches': attribution_matches,
+            'common_tx_attribution_total': attribution_total,
+        }
+    }
+
 def aggregate_tx_statistics(whitebox_cj_objs, blackbox_cj_objs):
     all_tx_stats = []
     seen_txids = set()
@@ -239,11 +471,37 @@ def aggregate_tx_statistics(whitebox_cj_objs, blackbox_cj_objs):
 def aggregate_detailed_cj_objects(whitebox_cj_objs, blackbox_cj_objs):
     detailed_cj_objects = []
     def participant_details(participant):
+        # Safely compute output totals without assuming cj_output is always present
+        cj_val = None
+        cj_obj = getattr(participant, "cj_output", None)
+        if cj_obj is not None:
+            cj_val = getattr(cj_obj, "value", None)
+
+        ch_val = None
+        ch_obj = getattr(participant, "change_output", None)
+        if ch_obj is not None:
+            ch_val = getattr(ch_obj, "value", None)
+
+        # Preferred: sum of known outputs when cj_output is available
+        output_total = None
+        if cj_val is not None:
+            output_total = (cj_val or 0) + ((ch_val or 0) if ch_val is not None else 0)
+        else:
+            # Fallback: derive from inputs and delta if available
+            try:
+                input_total = getattr(participant, "input_value", None)
+            except Exception:
+                input_total = None
+            delta_val = getattr(participant, "delta", None)
+            if input_total is not None and delta_val is not None:
+                output_total = input_total + delta_val
+
         part_details = {
             "role": getattr(participant, "role", None),
             "client": getattr(participant, "client", None) or "Unknown",
             "input_value": getattr(participant, "input_value", None),
-            "output_value": getattr(participant, "output_value", None),
+            # Use our safe total; template will format None as N/A
+            "output_value": output_total,
             "delta": getattr(participant, "delta", None),
             "inputs": [
                 {
@@ -333,11 +591,22 @@ def build_unified_report_data(
     whitebox_data,
     blackbox_cj_objs,
     whitebox_cj_objs,
-    output_dir
+    output_dir,
+    client_roles=None,
+    fidelity_bond_stats=None
 ):
     """
     Aggregate and process all data for the unified CoinJoin report.
     Returns the report_data dictionary.
+
+    Args:
+        blackbox_results: Results from blackbox analysis
+        whitebox_data: Results from whitebox analysis
+        blackbox_cj_objs: CoinJoin objects from blackbox analysis
+        whitebox_cj_objs: CoinJoin objects from whitebox analysis
+        output_dir: Output directory for the report
+        client_roles: Optional mapping of client_id to role
+        fidelity_bond_stats: Optional FidelityBondStats object for JoinMarket FB analysis
     """
     env = Environment(
         loader=FileSystemLoader(os.path.dirname(__file__) or "."),
@@ -356,7 +625,25 @@ def build_unified_report_data(
     report_data['whitebox_identified_chains'] = whitebox_identified_chains
     report_data['txid_lists'] = txid_lists
     chain_comparison_summary = aggregate_chain_comparison_summary(blackbox_identified_chains, whitebox_identified_chains)
+    # Compute chain-based root mapping consistency metrics
+    chain_mapping_metrics = compute_chain_root_mapping_consistency(
+        chain_comparison_summary=chain_comparison_summary,
+        chain_map=chain_map,
+        blackbox_cj_objs=blackbox_cj_objs,
+        whitebox_cj_objs=whitebox_cj_objs,
+    )
+    chain_comparison_summary.update(chain_mapping_metrics)
     report_data['chain_comparison_summary'] = chain_comparison_summary
+
+    # Compute taker CoinJoin output attribution metrics
+    taker_attribution_metrics = compute_taker_cj_output_attribution_metrics(
+        blackbox_cj_objs=blackbox_cj_objs,
+        whitebox_cj_objs=whitebox_cj_objs,
+        blackbox_chains=blackbox_identified_chains,
+        whitebox_chains=whitebox_identified_chains,
+    )
+    chain_comparison_summary.update(taker_attribution_metrics)
+
     report_data['colored_tree_comparisons'] = aggregate_colored_tree_comparisons(chain_comparison_summary, chain_map)
     input_stats, output_stats, all_tx_stats = aggregate_tx_statistics(whitebox_cj_objs, blackbox_cj_objs)
     if input_stats and output_stats:
@@ -375,4 +662,8 @@ def build_unified_report_data(
     # Add object stats for template compatibility
     report_data['blackbox_obj_stats'] = aggregate_coinjoin_object_stats(blackbox_cj_objs)
     report_data['whitebox_obj_stats'] = aggregate_coinjoin_object_stats(whitebox_cj_objs)
+
+    # Add fidelity bond stats if available (JoinMarket-specific, whitebox only)
+    report_data['fidelity_bond_stats'] = fidelity_bond_stats
+
     return report_data

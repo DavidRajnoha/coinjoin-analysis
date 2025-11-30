@@ -68,7 +68,7 @@ def analyze_and_solve_sudoku_for_tx(
     tx: Dict[str, Any],
     tx_map: Dict[str, Dict[str, Any]],
     fee_tol: Decimal = Decimal(20),
-    maker_gain_max: Decimal = Decimal(500000),
+    maker_gain_max: Decimal = Decimal(600000),
 ) -> List[List[Dict[str, Any]]]:
     """
     Analyze and solve input/output assignment (Sudoku) for a single CoinJoin transaction.
@@ -78,6 +78,11 @@ def analyze_and_solve_sudoku_for_tx(
     inputs, outputs = prepare_inputs_outputs(tx, tx_map)
     cj_val, cj_outs, ch_outs = classify_outputs(outputs)
     if not is_valid_cj_structure(cj_outs, ch_outs):
+        print(
+            "No blackbox attribution: invalid CJ structure "
+            f"(cj_outs={len(cj_outs)}, ch_outs={len(ch_outs)}, "
+            f"inputs={len(inputs)}, outputs={len(outputs)})"
+        )
         return []
     N = len(cj_outs)
     miner_fee = calculate_miner_fee(inputs, outputs)
@@ -106,32 +111,405 @@ def analyze_and_solve_sudoku_for_tx(
         )
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Binary search wrapper for optimal maker_gain_max
+# ─────────────────────────────────────────────────────────────────────────────
+
+def analyze_and_solve_sudoku_with_optimal_gain(
+    tx: Dict[str, Any],
+    tx_map: Dict[str, Dict[str, Any]],
+    fee_tol: Decimal = Decimal(20),
+    lower_bound: Decimal = Decimal(10000),
+    upper_bound: Decimal = Decimal(600000),
+    initial_guess: Decimal = Decimal(50000),
+    max_iterations: int = None,
+    search_strategy: str = "start_middle",
+) -> List[List[Dict[str, Any]]]:
+    """
+    Wrapper around analyze_and_solve_sudoku_for_tx that uses binary search
+    to find the optimal (smallest) maker_gain_max value that returns solutions.
+
+    Args:
+        tx: Transaction to analyze
+        tx_map: Map of all transactions
+        fee_tol: Fee tolerance
+        lower_bound: Minimum maker_gain_max to try (default: 10000 sat)
+        upper_bound: Maximum maker_gain_max to try (default: 600000 sat)
+        initial_guess: Starting point for search (default: 50000 sat)
+        max_iterations: Maximum number of iterations (default: None = unlimited)
+        search_strategy: Search strategy to use:
+            - "start_middle": Start at initial_guess, search up/down (original approach, 85% success)
+            - "start_high": Start at upper_bound, only search down
+            - "start_high_always_search": Start at upper_bound, search down even if fails (binary search)
+            - "aggressive_downscale": Aggressive downscale steps (512k→128k→32k→8k), then binary search
+
+    Returns:
+        List of solutions found with the optimal maker_gain_max, or empty list
+    """
+    if search_strategy == "start_middle":
+        return _search_start_middle(tx, tx_map, fee_tol, lower_bound, upper_bound, initial_guess, max_iterations)
+    elif search_strategy == "start_high":
+        return _search_start_high(tx, tx_map, fee_tol, lower_bound, upper_bound, max_iterations)
+    elif search_strategy == "start_high_always_search":
+        return _search_start_high_always(tx, tx_map, fee_tol, lower_bound, upper_bound, max_iterations)
+    elif search_strategy == "aggressive_downscale":
+        return _search_aggressive_downscale(tx, tx_map, fee_tol, lower_bound, upper_bound, max_iterations)
+    else:
+        raise ValueError(f"Unknown search_strategy: {search_strategy}")
+
+
+def _search_start_middle(
+    tx: Dict[str, Any],
+    tx_map: Dict[str, Dict[str, Any]],
+    fee_tol: Decimal,
+    lower_bound: Decimal,
+    upper_bound: Decimal,
+    initial_guess: Decimal,
+    max_iterations: int,
+) -> List[List[Dict[str, Any]]]:
+    """
+    Original strategy: Start at middle value (50k), search both up and down.
+    This was the FIRST implementation that achieved 85% taker match.
+    """
+    print(f"[Strategy: start_middle] Trying initial maker_gain_max={initial_guess}")
+    solutions = analyze_and_solve_sudoku_for_tx(tx, tx_map, fee_tol, initial_guess)
+    iteration_count = 1
+
+    if solutions:
+        # We found solutions at initial_guess, search for smaller value
+        best_maker_gain_max = initial_guess
+        best_solutions = solutions
+        high = initial_guess
+        low = lower_bound
+
+        print(f"Found solutions at {initial_guess}, searching for smaller maker_gain_max...")
+
+        while low < high:
+            # Check max iterations limit
+            if max_iterations and iteration_count >= max_iterations:
+                print(f"Reached max_iterations limit ({max_iterations}), returning best solution found")
+                return best_solutions
+
+            mid = low + (high - low) // 2
+
+            print(f"Binary search iteration {iteration_count + 1}: trying maker_gain_max={mid} (range: {low}-{high})")
+            solutions = analyze_and_solve_sudoku_for_tx(tx, tx_map, fee_tol, mid)
+            iteration_count += 1
+
+            if solutions:
+                best_maker_gain_max = mid
+                best_solutions = solutions
+                high = mid
+            else:
+                low = mid + 1
+
+        print(f"Optimal maker_gain_max found: {best_maker_gain_max} (total iterations: {iteration_count})")
+        return best_solutions
+    else:
+        # No solutions at initial_guess, search for larger value
+        low = initial_guess
+        high = upper_bound
+
+        print(f"No solutions at {initial_guess}, searching for larger maker_gain_max...")
+
+        best_maker_gain_max = None
+        best_solutions = []
+
+        while low < high:
+            # Check max iterations limit
+            if max_iterations and iteration_count >= max_iterations:
+                print(f"Reached max_iterations limit ({max_iterations})")
+                if best_solutions:
+                    print(f"Returning best solution found at maker_gain_max={best_maker_gain_max}")
+                    return best_solutions
+                else:
+                    print(f"No solutions found within {max_iterations} iterations")
+                    return []
+
+            mid = low + (high - low) // 2
+
+            print(f"Binary search iteration {iteration_count + 1}: trying maker_gain_max={mid} (range: {low}-{high})")
+            solutions = analyze_and_solve_sudoku_for_tx(tx, tx_map, fee_tol, mid)
+            iteration_count += 1
+
+            if solutions:
+                best_maker_gain_max = mid
+                best_solutions = solutions
+                high = mid
+            else:
+                low = mid + 1
+
+        # Final check at the boundary
+        if not (max_iterations and iteration_count >= max_iterations) and low <= upper_bound:
+            print(f"Final check (iteration {iteration_count + 1}): trying maker_gain_max={low}")
+            solutions = analyze_and_solve_sudoku_for_tx(tx, tx_map, fee_tol, low)
+            iteration_count += 1
+            if solutions:
+                print(f"Optimal maker_gain_max found: {low} (total iterations: {iteration_count})")
+                return solutions
+
+        if best_solutions:
+            print(f"Optimal maker_gain_max found: {best_maker_gain_max} (total iterations: {iteration_count})")
+            return best_solutions
+
+        print(f"No solutions found in range [{lower_bound}, {upper_bound}] (total iterations: {iteration_count})")
+        return []
+
+
+def _search_start_high(
+    tx: Dict[str, Any],
+    tx_map: Dict[str, Dict[str, Any]],
+    fee_tol: Decimal,
+    lower_bound: Decimal,
+    upper_bound: Decimal,
+    max_iterations: int,
+) -> List[List[Dict[str, Any]]]:
+    """
+    Second strategy: Start at high value (600k), only search down.
+    Stop immediately if no solution at 600k (don't search lower).
+    """
+    print(f"[Strategy: start_high] Trying initial maker_gain_max={upper_bound}")
+    solutions = analyze_and_solve_sudoku_for_tx(tx, tx_map, fee_tol, upper_bound)
+    iteration_count = 1
+
+    if not solutions:
+        print(f"No solutions found at {upper_bound}, stopping search (higher values won't help)")
+        return []
+
+    # Found solutions at upper_bound, now search downward for minimum
+    best_maker_gain_max = upper_bound
+    best_solutions = solutions
+    high = upper_bound
+    low = lower_bound
+
+    print(f"Found solutions at {upper_bound}, searching for smaller maker_gain_max...")
+
+    while low < high:
+        if max_iterations and iteration_count >= max_iterations:
+            print(f"Reached max_iterations limit ({max_iterations}), returning best solution found")
+            return best_solutions
+
+        mid = low + (high - low) // 2
+
+        print(f"Binary search iteration {iteration_count + 1}: trying maker_gain_max={mid} (range: {low}-{high})")
+        solutions = analyze_and_solve_sudoku_for_tx(tx, tx_map, fee_tol, mid)
+        iteration_count += 1
+
+        if solutions:
+            best_maker_gain_max = mid
+            best_solutions = solutions
+            high = mid
+        else:
+            low = mid + 1
+
+    print(f"Optimal maker_gain_max found: {best_maker_gain_max} (total iterations: {iteration_count})")
+    return best_solutions
+
+
+def _search_start_high_always(
+    tx: Dict[str, Any],
+    tx_map: Dict[str, Dict[str, Any]],
+    fee_tol: Decimal,
+    lower_bound: Decimal,
+    upper_bound: Decimal,
+    max_iterations: int,
+) -> List[List[Dict[str, Any]]]:
+    """
+    Third strategy: Start at high value (600k), always search down.
+    Even if no solution at 600k, search lower (fewer branches may help).
+    """
+    print(f"[Strategy: start_high_always_search] Trying initial maker_gain_max={upper_bound}")
+    solutions = analyze_and_solve_sudoku_for_tx(tx, tx_map, fee_tol, upper_bound)
+    iteration_count = 1
+
+    # Initialize search range - always search downward
+    best_maker_gain_max = upper_bound if solutions else None
+    best_solutions = solutions if solutions else []
+    high = upper_bound
+    low = lower_bound
+
+    if solutions:
+        print(f"Found solutions at {upper_bound}, searching for smaller maker_gain_max...")
+    else:
+        print(f"No solutions found at {upper_bound}, but searching lower values (fewer branches may help)...")
+
+    while low < high:
+        if max_iterations and iteration_count >= max_iterations:
+            print(f"Reached max_iterations limit ({max_iterations}), returning best solution found")
+            return best_solutions
+
+        mid = low + (high - low) // 2
+
+        print(f"Binary search iteration {iteration_count + 1}: trying maker_gain_max={mid} (range: {low}-{high})")
+        solutions = analyze_and_solve_sudoku_for_tx(tx, tx_map, fee_tol, mid)
+        iteration_count += 1
+
+        if solutions:
+            best_maker_gain_max = mid
+            best_solutions = solutions
+            high = mid
+        else:
+            low = mid + 1
+
+    if best_maker_gain_max is not None:
+        print(f"Optimal maker_gain_max found: {best_maker_gain_max} (total iterations: {iteration_count})")
+    else:
+        print(f"No solutions found in range [{lower_bound}, {upper_bound}] (total iterations: {iteration_count})")
+    return best_solutions
+
+
+def _search_aggressive_downscale(
+    tx: Dict[str, Any],
+    tx_map: Dict[str, Dict[str, Any]],
+    fee_tol: Decimal,
+    lower_bound: Decimal,
+    upper_bound: Decimal,
+    max_iterations: int,
+    downscale_ratio: Decimal = Decimal('0.25'),
+) -> List[List[Dict[str, Any]]]:
+    """
+    Fourth strategy: Aggressive downscaling when no solution found.
+
+    Uses predetermined steps to aggressively search down when no solution is found.
+    Default: 512k -> 128k -> 32k -> 8k (ratio = 0.25)
+    Alternative hardcoded: 600k -> 150k -> 50k -> 20k -> 10k
+
+    When a solution is found, performs binary search downward to find minimum.
+
+    Args:
+        downscale_ratio: Ratio for aggressive downscaling (default: 0.25 for 1/4 steps)
+    """
+    # Generate downscale steps using the ratio
+    # Start at a power of 2 close to upper_bound for nice round numbers
+    if downscale_ratio == Decimal('0.25'):
+        # Use 512k as starting point for nice round numbers with 1/4 ratio
+        current = Decimal('512000')
+    else:
+        current = upper_bound
+
+    downscale_steps = []
+    while current >= lower_bound:
+        downscale_steps.append(current)
+        current = (current * downscale_ratio).quantize(Decimal('1'))
+
+    # Ensure lower_bound is included
+    if downscale_steps[-1] > lower_bound:
+        downscale_steps.append(lower_bound)
+
+    print(f"[Strategy: aggressive_downscale] Downscale steps: {[int(s) for s in downscale_steps]}")
+
+    best_maker_gain_max = None
+    best_solutions = []
+    iteration_count = 0
+
+    # Try each downscale step
+    for step_value in downscale_steps:
+        if max_iterations and iteration_count >= max_iterations:
+            print(f"Reached max_iterations limit ({max_iterations}), returning best solution found")
+            break
+
+        print(f"Aggressive downscale iteration {iteration_count + 1}: trying maker_gain_max={step_value}")
+        solutions = analyze_and_solve_sudoku_for_tx(tx, tx_map, fee_tol, step_value)
+        iteration_count += 1
+
+        if solutions:
+            # Found a solution! Now do binary search downward to find minimum
+            print(f"Found solutions at {step_value}, performing binary search to find minimum...")
+            best_maker_gain_max = step_value
+            best_solutions = solutions
+
+            # Binary search between lower_bound and current step_value
+            low = lower_bound
+            high = step_value
+
+            while low < high:
+                if max_iterations and iteration_count >= max_iterations:
+                    print(f"Reached max_iterations limit ({max_iterations}), returning best solution found")
+                    break
+
+                mid = low + (high - low) // 2
+
+                print(f"Binary search iteration {iteration_count + 1}: trying maker_gain_max={mid} (range: {low}-{high})")
+                solutions = analyze_and_solve_sudoku_for_tx(tx, tx_map, fee_tol, mid)
+                iteration_count += 1
+
+                if solutions:
+                    best_maker_gain_max = mid
+                    best_solutions = solutions
+                    high = mid
+                else:
+                    low = mid + 1
+
+            print(f"Optimal maker_gain_max found: {best_maker_gain_max} (total iterations: {iteration_count})")
+            return best_solutions
+
+    # No solution found at any step
+    if best_maker_gain_max is not None:
+        print(f"Optimal maker_gain_max found: {best_maker_gain_max} (total iterations: {iteration_count})")
+    else:
+        print(f"No solutions found in downscale steps (total iterations: {iteration_count})")
+    return best_solutions
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Batch driver: solve_sudoku_for_coinjoin_set
 # ─────────────────────────────────────────────────────────────────────────────
 
 def solve_sudoku_for_coinjoin_set(
     coinjoins: List[Tuple[str, Dict[str, Any], Dict[str, Any]]],
     tx_map: Dict[str, Dict[str, Any]],
+    search_strategy: str = "start_high_always_search",
+    max_iterations: int = 5,
 ) -> Tuple[List[CoinJoin], List[Dict[str, Any]]]:
     """
     Run Sudoku assignment for all CoinJoin candidates in the set.
     Returns (coinjoin_objects, coinjoin_results).
+
+    Args:
+        coinjoins: List of (txid, tx, block) tuples
+        tx_map: Map of all transactions
+        search_strategy: Search strategy for binary search:
+            - "start_middle": Start at 50k, search up/down (original, achieved 85% taker match)
+            - "start_high": Start at 600k, only search down
+            - "start_high_always_search": Start at 600k, search down even if fails (binary search)
+            - "aggressive_downscale": Aggressive downscale steps (512k→128k→32k→8k), then binary search
+        max_iterations: Maximum iterations for binary search
     """
     coinjoin_results: List[Dict[str, Any]] = []
     coinjoin_objects: List[CoinJoin] = []
 
     for txid, tx, block in coinjoins:
+        solutions = None
+        failure_reason = None
+        skipped = False
+
         try:
             if len(tx['vin']) > MAX_INPUTS_SWEEP or len(tx['vout']) > MAX_OUTPUTS_SWEEP:
                 print(f'solve_sudoku_for_coinjoin_set: skipping {txid} (too big)')
+                failure_reason = f"Too large (inputs={len(tx['vin'])}, outputs={len(tx['vout'])}, max={MAX_INPUTS_SWEEP}/{MAX_OUTPUTS_SWEEP})"
+                skipped = True
                 solutions = None
             else:
                 print(f'solve_sudoku_for_coinjoin_set: solving {txid}')
-                solutions = analyze_and_solve_sudoku_for_tx(tx, tx_map)
+                solutions = analyze_and_solve_sudoku_with_optimal_gain(
+                    tx, tx_map,
+                    max_iterations=max_iterations,
+                    search_strategy=search_strategy
+                )
                 coinjoin_results.append({'txid': txid, 'solutions': solutions})
+                if not solutions:
+                    failure_reason = f"No solution found (inputs={len(tx.get('vin', []))}, outputs={len(tx.get('vout', []))})"
+                    print(
+                        f'solve_sudoku_for_coinjoin_set: no blackbox solutions for {txid} '
+                        f'(vin={len(tx.get("vin", []))}, vout={len(tx.get("vout", []))})'
+                    )
         except KeyboardInterrupt as e:
             solutions = None
+            failure_reason = "Interrupted by user"
+            skipped = True
             print(f'solve_sudoku_for_coinjoin_set: skipping {txid} (interrupted)')
+        except Exception as e:
+            solutions = None
+            failure_reason = f"Error: {str(e)}"
+            print(f'solve_sudoku_for_coinjoin_set: error solving {txid}: {e}')
 
 
         # —— modal CJ value (works on BTC values in raw tx) ————————
@@ -139,6 +517,10 @@ def solve_sudoku_for_coinjoin_set(
             best_solution = solutions[0]
             cj_value = max(set(o['cj']['value'] for o in best_solution), key=lambda x: sum(1 for o in best_solution if o['cj']['value'] == x))
             participants = _build_participants(best_solution, tx, cj_value) if solutions else []
+
+            # Extract total valid assignments from the solution metadata
+            total_assignments = best_solution[0].get('_total_valid_assignments', 1) if best_solution else 1
+
             coinjoin_objects.append(
                 CoinJoin(
                     txid=txid,
@@ -148,7 +530,27 @@ def solve_sudoku_for_coinjoin_set(
                     meta={
                         'blackbox_analysis': True,
                         'sudoku_solved': bool(solutions),
+                        'num_solutions': total_assignments,
                         'candidate_cj_value': cj_value,  # Decimal (sat)
+                        'input_count': len(tx['vin']),
+                        'output_count': len(tx['vout']),
+                    },
+                )
+            )
+        else:
+            # Create a CoinJoin object even for failures to track them in the report
+            coinjoin_objects.append(
+                CoinJoin(
+                    txid=txid,
+                    block_height=block.get('height', 0),
+                    tx=tx,
+                    participants=[],
+                    meta={
+                        'blackbox_analysis': True,
+                        'sudoku_solved': False,
+                        'num_solutions': 0,
+                        'failure_reason': failure_reason,
+                        'skipped': skipped,
                         'input_count': len(tx['vin']),
                         'output_count': len(tx['vout']),
                     },
@@ -463,5 +865,12 @@ def reconstruct_sudoku_solutions(solutions, inputs, cj_outs, ch_outs, subset_ind
     print("Found {} valid assignments".format(len(reconstruct_sudoku_solutions)))
 
     min_taker_fee_solutions = [max([(min([x['delta'] for x in n]), n) for n in reconstruct_sudoku_solutions], key=lambda x: x[0])[1]] if len(reconstruct_sudoku_solutions) > 0 else []
+
+    # Store the total number of valid assignments in the solution metadata
+    # This allows the caller to know how many alternative solutions were found
+    if min_taker_fee_solutions:
+        # Add metadata to the best solution about total assignments found
+        for participant in min_taker_fee_solutions[0]:
+            participant['_total_valid_assignments'] = len(reconstruct_sudoku_solutions)
 
     return min_taker_fee_solutions

@@ -856,7 +856,7 @@ def _check_spends_from(next_cj, current_cj):
 
 def _add_remaining_singleton_chains(chains, sorted_cjs, cjs_in_a_chain, analysis_type):
     """Add any remaining transactions as single-tx chains.
-    
+
     Args:
         chains: List of chains to add to
         sorted_cjs: List of all CoinJoin objects
@@ -869,3 +869,69 @@ def _add_remaining_singleton_chains(chains, sorted_cjs, cjs_in_a_chain, analysis
             node = CoinJoinLeafNode(cj)
             tree.add_coinjoin(node)
             chains.append(tree)
+
+
+def rebuild_chains_with_new_connections(coinjoins, old_chains, new_connections, analysis_type):
+    """
+    Rebuild chains incorporating newly discovered connections.
+
+    Strategy:
+    1. Re-run chain identification from scratch
+    2. Add the new connections to appropriate chains
+    3. Merge chains if needed when new connections bridge them
+
+    Args:
+        coinjoins: List of all CoinJoin objects
+        old_chains: Previous chains (for reference, not directly used)
+        new_connections: List of (parent_txid, child_txid) tuples
+        analysis_type: 'whitebox' or 'blackbox'
+
+    Returns:
+        List of CoinJoinTree objects with new connections incorporated
+    """
+    # Re-run chain identification
+    chains = identify_coinjoin_chains(coinjoins, analysis_type)
+
+    # Build mapping of txid to chain
+    txid_to_chain = {}
+    for chain in chains:
+        for node in chain.nodes:
+            txid_to_chain[node.txid] = chain
+
+    # Process each new connection
+    for parent_txid, child_txid in new_connections:
+        # Find chains containing parent and child
+        parent_chain = txid_to_chain.get(parent_txid)
+        child_chain = txid_to_chain.get(child_txid)
+
+        if not parent_chain or not child_chain:
+            # One or both transactions not in any chain
+            # This shouldn't happen if chain identification is working correctly
+            print(f"Warning: Cannot add connection {parent_txid[:8]} -> {child_txid[:8]} "
+                  f"(one or both not in chains)")
+            continue
+
+        if parent_chain == child_chain:
+            # Both in same chain, just add the connection
+            parent_chain.add_connection(parent_txid, child_txid)
+        else:
+            # In different chains - need to merge
+            # Add all nodes from child_chain to parent_chain
+            for node in child_chain.nodes:
+                if node.txid not in txid_to_chain or txid_to_chain[node.txid] != parent_chain:
+                    parent_chain.add_coinjoin(node)
+                    txid_to_chain[node.txid] = parent_chain
+
+            # Add all connections from child_chain to parent_chain
+            for conn_parent_txid, conn_child_txids in child_chain.connections.items():
+                for conn_child_txid in conn_child_txids:
+                    parent_chain.add_connection(conn_parent_txid, conn_child_txid)
+
+            # Add the new connection
+            parent_chain.add_connection(parent_txid, child_txid)
+
+            # Remove child_chain from chains list
+            if child_chain in chains:
+                chains.remove(child_chain)
+
+    return chains

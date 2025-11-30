@@ -3,16 +3,64 @@ Helpers for aggregating and building unified CoinJoin report data.
 """
 from typing import List, Dict, Any, Optional
 import pandas as pd
+from jinja2 import Environment, FileSystemLoader, select_autoescape
 
+from joinmarket.common.chain_analysis_orchestrator import ChainAnalysisOrchestrator
+from joinmarket.common.coinjoin_chain import identify_coinjoin_chains
 from joinmarket.common.chain_based_attributor import ChainBasedAttributor
 from joinmarket.comparison import generate_comparison_data, generate_object_comparison
 from joinmarket.comparison.coinjoin_chain_analysis import (
-    serialize_cj_chain_for_report,
-    get_identified_chains_and_txids
+    serialize_cj_chain_for_report
 )
 from joinmarket.comparison.compare_coinjoin import compare_coinjoin_chains
 from joinmarket.comparison.chain_visualization import generate_colored_chain_comparison
+from joinmarket.whitebox.load_scenario import identify_sole_takers
 import os
+
+def aggregate_blackbox_analysis_stats(blackbox_cj_objs):
+    """Aggregate detailed statistics about blackbox analysis successes and failures."""
+    total = len(blackbox_cj_objs)
+    solved = sum(1 for cj in blackbox_cj_objs if cj.meta.get('sudoku_solved', False))
+    unsolved = total - solved
+
+    # Count failures by reason
+    skipped = sum(1 for cj in blackbox_cj_objs if cj.meta.get('skipped', False))
+    no_solution = sum(1 for cj in blackbox_cj_objs
+                      if not cj.meta.get('sudoku_solved', False)
+                      and not cj.meta.get('skipped', False))
+
+    # Analyze solutions for solved CoinJoins
+    solution_counts = []
+    for cj in blackbox_cj_objs:
+        if cj.meta.get('sudoku_solved', False):
+            num_solutions = cj.meta.get('num_solutions', 0)
+            solution_counts.append(num_solutions)
+
+    # Collect failure details
+    failure_details = []
+    for cj in blackbox_cj_objs:
+        if not cj.meta.get('sudoku_solved', False):
+            failure_details.append({
+                'txid': cj.txid,
+                'reason': cj.meta.get('failure_reason', 'Unknown'),
+                'inputs': cj.meta.get('input_count', 0),
+                'outputs': cj.meta.get('output_count', 0),
+                'skipped': cj.meta.get('skipped', False)
+            })
+
+    return {
+        'total_coinjoins': total,
+        'solved': solved,
+        'unsolved': unsolved,
+        'solve_rate': (solved / total * 100) if total > 0 else 0,
+        'skipped': skipped,
+        'no_solution': no_solution,
+        'solution_counts': solution_counts,
+        'avg_solutions': sum(solution_counts) / len(solution_counts) if solution_counts else 0,
+        'max_solutions': max(solution_counts) if solution_counts else 0,
+        'multiple_solutions': sum(1 for c in solution_counts if c > 1),
+        'failure_details': failure_details
+    }
 
 def aggregate_txid_comparison(blackbox_results, whitebox_data):
     return generate_comparison_data(blackbox_results, whitebox_data)
@@ -153,17 +201,44 @@ def aggregate_participant_breakdown(obj_comparison_data, whitebox_cj_objs):
     return detailed_participant_breakdown
 
 
-def attribute_chains(coinjoin_chains):
-    attributor = ChainBasedAttributor()
-    for coinjoin_chain in coinjoin_chains:
-        attributor.attribute_chain(coinjoin_chain)
-
 def aggregate_chain_stats(blackbox_cj_objs, whitebox_cj_objs):
-    blackbox_identified_chains, blackbox_chain_txids = get_identified_chains_and_txids(blackbox_cj_objs, 'blackbox')
-    whitebox_identified_chains, whitebox_chain_txids = get_identified_chains_and_txids(whitebox_cj_objs, 'whitebox')
+    """
+    Aggregate chain statistics.
 
-    attribute_chains(blackbox_identified_chains)
-    attribute_chains(whitebox_identified_chains)
+    For blackbox: Use orchestrator for iterative refinement (connection discovery).
+    For whitebox: Use traditional flow (already has ground truth, no discovery needed).
+    """
+    orchestrator = ChainAnalysisOrchestrator()
+
+    # Blackbox: Run iterative chain analysis with refinement
+    # This discovers additional connections missed during initial chain building
+    blackbox_identified_chains = orchestrator.analyze_with_refinement(
+        blackbox_cj_objs, 'blackbox'
+    )
+
+    # Whitebox: Use traditional flow (identify + attribute)
+    # Whitebox already has ground truth, orchestrator would incorrectly merge independent chains
+    print(f"\n=== Chain Analysis (whitebox) ===")
+    print(f"Chain identification and attribution...")
+    whitebox_identified_chains = identify_coinjoin_chains(whitebox_cj_objs, 'whitebox')
+    print(f"  Found {len(whitebox_identified_chains)} chains")
+
+    attributor = ChainBasedAttributor()
+    for chain in whitebox_identified_chains:
+        attributor.attribute_chain(chain)
+
+    # Restore unassigned outputs for comparison phase
+    orchestrator._restore_unassigned_outputs(whitebox_cj_objs)
+    print(f"=== Analysis complete ===\n")
+
+    # Extract transaction IDs from chains (filter out single-transaction chains for blackbox)
+    blackbox_chain_txids = sorted({
+        node.txid
+        for chain in blackbox_identified_chains
+        if chain.length() > 1  # Only include chains with more than 1 transaction
+        for node in chain.nodes
+    })
+    whitebox_chain_txids = sorted({node.txid for chain in whitebox_identified_chains for node in chain.nodes})
 
     all_plain_txids = sorted({cj.txid for cj in blackbox_cj_objs + whitebox_cj_objs})
     unattributed_in_blackbox = sorted(set(all_plain_txids) - set(blackbox_chain_txids))
@@ -224,6 +299,8 @@ def compute_chain_root_mapping_consistency(
         return {
             'chain_identification_coverage_nodes': None,
             'chain_identification_coverage_leaves': None,
+            'chain_identification_specificity_nodes': None,
+            'chain_identification_specificity_leaves': None,
             'chain_root_mapping_strict_consistency_nodes': None,
             'chain_root_mapping_strict_consistency_leaves': None,
         }
@@ -235,6 +312,11 @@ def compute_chain_root_mapping_consistency(
     leaf_identified = 0            # WB leaf nodes with any BB taker identified
     node_strict_consistent = 0     # WB nodes strictly consistent with roots
     leaf_strict_consistent = 0     # WB leaves strictly consistent with roots
+
+    # Cross-chain specificity: track BB root identities and which WB chains they map to
+    # This will detect if BB merges multiple distinct WB chains into one BB identity
+    bb_to_wb_chains = {}           # {bb_root_identity: [list of wb_chain_ids]}
+    wb_chain_has_bb_root = {}      # {wb_chain_id: bb_root_identity or None}
 
     for pair in matched:
         bb_chain_id = pair.get('blackbox_chain_id')
@@ -248,6 +330,7 @@ def compute_chain_root_mapping_consistency(
             continue
 
         wb_root_bb_identity: Optional[str] = None
+        wb_root_identity: Optional[str] = None
         bb_root_identity: Optional[str] = None
 
         # Determine the WB ultimate root txid (by earliest WB block height among WB root nodes)
@@ -259,6 +342,8 @@ def compute_chain_root_mapping_consistency(
             wb_root_node = min(wb_roots, key=lambda n: (wb_height_local.get(getattr(n, 'txid', None), 0), getattr(n, 'txid', '')))
             root_txid = getattr(wb_root_node, 'txid', None)
             if root_txid:
+                # Get the WB root identity (ground truth)
+                wb_root_identity = _single_taker_for_txid(whitebox_cj_objs, root_txid)
                 wb_root_bb_identity = _single_taker_for_txid(blackbox_cj_objs, root_txid) or 'UNATTRIBUTABLE'
                 # If BB taker exists at this root, we can set bb_root immediately
                 bb_root_candidate = _single_taker_for_txid(blackbox_cj_objs, root_txid)
@@ -286,7 +371,7 @@ def compute_chain_root_mapping_consistency(
             if bb_root_identity is None and bb_id and wb_id:
                 bb_root_identity = bb_id
 
-            # Coverage: BB taker aligns with established bb_root_identity
+            # Coverage (Sensitivity): BB taker aligns with established bb_root_identity
             if bb_root_identity and bb_id == bb_root_identity:
                 node_identified += 1
                 if getattr(node, 'is_leaf', False):
@@ -299,15 +384,51 @@ def compute_chain_root_mapping_consistency(
                     if getattr(node, 'is_leaf', False):
                         leaf_strict_consistent += 1
 
+        # After BFS traversal, store the bb_root_identity for this chain
+        if bb_root_identity:
+            wb_chain_has_bb_root[wb_chain_id] = bb_root_identity
+            bb_to_wb_chains.setdefault(bb_root_identity, []).append(wb_chain_id)
+
+    # Compute cross-chain specificity at chain level
+    # Specificity: % of WB chains that BB keeps separate (not merged with other WB chains)
+    # False Positive: WB chain that was merged into a BB identity with other WB chains
+    # True Negative: WB chain that BB kept separate (1-to-1 mapping)
+
+    total_wb_chains = len(matched)
+    true_negatives = 0  # WB chains kept separate by BB
+    false_positives = 0 # WB chains merged by BB
+
+    for bb_id, wb_chain_list in bb_to_wb_chains.items():
+        if len(wb_chain_list) == 1:
+            # BB kept this WB chain separate (1-to-1 mapping)
+            true_negatives += 1
+        else:
+            # BB merged multiple WB chains into one BB identity
+            # ALL chains in this group are false positives
+            false_positives += len(wb_chain_list)
+
+    # Specificity = True Negatives / Total WB Chains
+    # Note: This is the same for nodes and leaves since it's chain-level
+    if total_wb_chains > 0:
+        chain_specificity = round(true_negatives / total_wb_chains * 100, 2)
+    else:
+        chain_specificity = None
+
     # Compute percentages
     coverage_nodes = round(node_identified / max(node_total, 1) * 100, 2) if node_total > 0 else None
     coverage_leaves = round(leaf_identified / max(leaf_total, 1) * 100, 2) if leaf_total > 0 else None
     strict_nodes = round(node_strict_consistent / max(node_total, 1) * 100, 2) if node_total > 0 else None
     strict_leaves = round(leaf_strict_consistent / max(leaf_total, 1) * 100, 2) if leaf_total > 0 else None
 
+    # Cross-chain specificity is the same for nodes and leaves (chain-level metric)
+    specificity_nodes = chain_specificity
+    specificity_leaves = chain_specificity
+
     return {
         'chain_identification_coverage_nodes': coverage_nodes,
         'chain_identification_coverage_leaves': coverage_leaves,
+        'chain_identification_specificity_nodes': specificity_nodes,
+        'chain_identification_specificity_leaves': specificity_leaves,
         'chain_root_mapping_strict_consistency_nodes': strict_nodes,
         'chain_root_mapping_strict_consistency_leaves': strict_leaves,
     }
@@ -371,6 +492,10 @@ def compute_taker_cj_output_attribution_metrics(
     attribution_matches = 0
     attribution_total = 0
 
+    # Specificity tracking: maker outputs (negative class)
+    attribution_negatives_total = 0
+    attribution_true_negatives = 0
+
     for txid in common_txids:
         bb_cj = bb_txid_map.get(txid)
         wb_cj = wb_txid_map.get(txid)
@@ -381,6 +506,7 @@ def compute_taker_cj_output_attribution_metrics(
         # Get taker cj_output attributions from both analyses
         bb_taker_outputs = set()
         wb_taker_outputs = set()
+        wb_maker_outputs = set()
 
         for participant in getattr(bb_cj, 'participants', []) or []:
             if getattr(participant, 'role', None) == 'taker':
@@ -397,22 +523,42 @@ def compute_taker_cj_output_attribution_metrics(
                     output_n = getattr(cj_out, 'n', None)
                     if output_n is not None:
                         wb_taker_outputs.add(output_n)
+            elif getattr(participant, 'role', None) == 'maker':
+                # Track maker outputs (negative class)
+                cj_out = getattr(participant, 'cj_output', None)
+                if cj_out is not None:
+                    output_n = getattr(cj_out, 'n', None)
+                    if output_n is not None:
+                        wb_maker_outputs.add(output_n)
 
-        # Count matches: outputs attributed as taker in both BB and WB
+        # Count matches: outputs attributed as taker in both BB and WB (Sensitivity)
         if wb_taker_outputs:  # Only count if WB has attributions (ground truth)
             for output_n in wb_taker_outputs:
                 attribution_total += 1
                 if output_n in bb_taker_outputs:
                     attribution_matches += 1
 
-    # Calculate accuracy percentage
+        # Count true negatives: maker outputs correctly NOT labeled as taker in BB (Specificity)
+        if wb_maker_outputs:
+            for output_n in wb_maker_outputs:
+                attribution_negatives_total += 1
+                if output_n not in bb_taker_outputs:
+                    # BB correctly did NOT label this maker output as taker
+                    attribution_true_negatives += 1
+
+    # Calculate accuracy (sensitivity) percentage
     attribution_accuracy = round(attribution_matches / max(attribution_total, 1) * 100, 2) \
                           if attribution_total > 0 else None
+
+    # Calculate specificity percentage
+    attribution_specificity = round(attribution_true_negatives / max(attribution_negatives_total, 1) * 100, 2) \
+                             if attribution_negatives_total > 0 else None
 
     return {
         'taker_cj_output_coverage_bb': bb_coverage,
         'taker_cj_output_coverage_wb': wb_coverage,
         'taker_cj_output_attribution_accuracy': attribution_accuracy,
+        'taker_cj_output_attribution_specificity': attribution_specificity,
         'taker_cj_output_details': {
             'bb_attributed_count': bb_attributed_takers,
             'bb_total_takers': bb_total_takers,
@@ -420,8 +566,150 @@ def compute_taker_cj_output_attribution_metrics(
             'wb_total_takers': wb_total_takers,
             'common_tx_attribution_matches': attribution_matches,
             'common_tx_attribution_total': attribution_total,
+            'common_tx_attribution_true_negatives': attribution_true_negatives,
+            'common_tx_attribution_negatives_total': attribution_negatives_total,
         }
     }
+
+
+def compute_sole_taker_cj_output_attribution_metrics(
+    blackbox_cj_objs: List[Any],
+    whitebox_cj_objs: List[Any],
+    sole_taker_clients: set[str],
+) -> Dict[str, Any] | None:
+    """Compute CJ output attribution metrics for sole takers only.
+
+    Sole takers are takers that are:
+    - NOT tumblers (no TUMBLE.log in logs/)
+    - NOT makers (no yigen-statement.csv in logs/)
+
+    This metric helps evaluate blackbox performance on standard single-transaction takers.
+
+    Args:
+        blackbox_cj_objs: CoinJoin objects from blackbox analysis (after chain attribution)
+        whitebox_cj_objs: CoinJoin objects from whitebox analysis (after chain attribution)
+        sole_taker_clients: Set of client IDs identified as sole takers
+
+    Returns:
+        Dictionary with sensitivity and specificity metrics, or None if no sole takers found
+    """
+    # Return None if no sole takers present
+    if not sole_taker_clients:
+        return None
+
+    # Find transactions involving sole takers
+    common_txids = {getattr(cj, 'txid', None) for cj in blackbox_cj_objs} & \
+                   {getattr(cj, 'txid', None) for cj in whitebox_cj_objs}
+    common_txids.discard(None)
+
+    bb_txid_map = {getattr(cj, 'txid', None): cj for cj in blackbox_cj_objs}
+    wb_txid_map = {getattr(cj, 'txid', None): cj for cj in whitebox_cj_objs}
+
+    attribution_matches = 0
+    attribution_total = 0
+
+    # Specificity tracking: maker outputs (negative class)
+    attribution_negatives_total = 0
+    attribution_true_negatives = 0
+
+    # Track sole taker participation count
+    sole_taker_tx_count = 0
+
+    for txid in common_txids:
+        bb_cj = bb_txid_map.get(txid)
+        wb_cj = wb_txid_map.get(txid)
+
+        if not bb_cj or not wb_cj:
+            continue
+
+        # Check if this transaction has any sole taker participants
+        has_sole_taker = False
+        for participant in getattr(wb_cj, 'participants', []) or []:
+            client_id = getattr(participant, 'client', None)
+            if client_id in sole_taker_clients:
+                has_sole_taker = True
+                break
+
+        # Skip this transaction if no sole takers involved
+        if not has_sole_taker:
+            continue
+
+        sole_taker_tx_count += 1
+
+        # Get taker cj_output attributions from both analyses
+        # BB: Get ALL taker outputs (don't filter by client - BB might not have reliable client IDs)
+        # WB: Get sole taker outputs AND all maker outputs for specificity
+        bb_taker_outputs = set()
+        wb_sole_taker_outputs = set()
+        wb_all_maker_outputs = set()
+
+        # BB: Collect all taker outputs without filtering by client
+        for participant in getattr(bb_cj, 'participants', []) or []:
+            if getattr(participant, 'role', None) == 'taker':
+                cj_out = getattr(participant, 'cj_output', None)
+                if cj_out is not None:
+                    output_n = getattr(cj_out, 'n', None)
+                    if output_n is not None:
+                        bb_taker_outputs.add(output_n)
+
+        # WB: Collect sole taker outputs and ALL maker outputs
+        for participant in getattr(wb_cj, 'participants', []) or []:
+            client_id = getattr(participant, 'client', None)
+            role = getattr(participant, 'role', None)
+            cj_out = getattr(participant, 'cj_output', None)
+
+            if cj_out is not None:
+                output_n = getattr(cj_out, 'n', None)
+                if output_n is not None:
+                    # Collect sole taker outputs (for sensitivity)
+                    if client_id in sole_taker_clients and role == 'taker':
+                        wb_sole_taker_outputs.add(output_n)
+
+                    # Collect ALL maker outputs (for specificity)
+                    if role == 'maker':
+                        wb_all_maker_outputs.add(output_n)
+
+        # Count matches: sole taker outputs attributed as taker in both BB and WB (Sensitivity)
+        if wb_sole_taker_outputs:  # Only count if WB has sole taker attributions (ground truth)
+            for output_n in wb_sole_taker_outputs:
+                attribution_total += 1
+                if output_n in bb_taker_outputs:
+                    attribution_matches += 1
+
+        # Count true negatives: maker outputs correctly NOT labeled as taker in BB (Specificity)
+        # In transactions with sole takers, check if BB correctly avoided labeling makers as takers
+        if wb_all_maker_outputs:
+            for output_n in wb_all_maker_outputs:
+                attribution_negatives_total += 1
+                if output_n not in bb_taker_outputs:
+                    # BB correctly did NOT label this maker output as taker
+                    attribution_true_negatives += 1
+
+    # Handle case where no transactions involved sole takers
+    if attribution_total == 0 and attribution_negatives_total == 0:
+        return None
+
+    # Calculate accuracy (sensitivity) percentage
+    attribution_accuracy = round(attribution_matches / max(attribution_total, 1) * 100, 2) \
+                          if attribution_total > 0 else None
+
+    # Calculate specificity percentage
+    attribution_specificity = round(attribution_true_negatives / max(attribution_negatives_total, 1) * 100, 2) \
+                             if attribution_negatives_total > 0 else None
+
+    return {
+        'sole_taker_cj_output_attribution_accuracy': attribution_accuracy,
+        'sole_taker_cj_output_attribution_specificity': attribution_specificity,
+        'sole_taker_count': len(sole_taker_clients),
+        'sole_taker_tx_count': sole_taker_tx_count,
+        'sole_taker_details': {
+            'attribution_matches': attribution_matches,
+            'attribution_total': attribution_total,
+            'attribution_true_negatives': attribution_true_negatives,
+            'attribution_negatives_total': attribution_negatives_total,
+        }
+    }
+
 
 def aggregate_tx_statistics(whitebox_cj_objs, blackbox_cj_objs):
     all_tx_stats = []
@@ -436,13 +724,50 @@ def aggregate_tx_statistics(whitebox_cj_objs, blackbox_cj_objs):
         seen_txids.add(cj.txid)
         input_count = count_tx_inputs(cj.tx)
         output_count = count_tx_outputs(cj.tx)
+
+        # Determine solve status (for blackbox only)
+        is_blackbox = cj in blackbox_cj_objs
+        solve_status = None
+        num_solutions = None
+        if is_blackbox:
+            if cj.meta.get('skipped', False):
+                solve_status = 'Skipped'
+            elif cj.meta.get('sudoku_solved', False):
+                solve_status = 'Solved'
+                num_solutions = cj.meta.get('num_solutions', 1)
+            else:
+                solve_status = 'Unsolved'
+                num_solutions = 0
+
+        # Estimate participant count for unsolved (output_count // 2)
+        participant_count = len(cj.participants) if cj.participants else (output_count // 2)
+        inputs_per_participant = input_count / participant_count if participant_count > 0 else 0
+
+        # Check if taker CJ output attribution was attempted via chain analysis
+        # Only count as "attributed" if confidence is high (>0.5), indicating chain-based attribution
+        # Low confidence (<0.5) means it was just arbitrarily restored after prepare_for_attribution
+        taker_cj_output_attributed = False
+        if cj.participants:
+            # Check if any taker has cj_output with high confidence (chain-attributed)
+            takers = [p for p in cj.participants if getattr(p, 'role', None) == 'taker']
+            if takers:
+                taker_cj_output_attributed = any(
+                    hasattr(p, 'cj_output') and p.cj_output is not None
+                    and getattr(p.cj_output, 'confidence', 0) > 0.5
+                    for p in takers
+                )
+
         tx_stats = {
             'txid': cj.txid,
             'block_height': cj.block_height,
             'input_count': input_count,
             'output_count': output_count,
             'cj_amount': cj.cj_amount,
-            'participant_count': len(cj.participants),
+            'participant_count': participant_count,
+            'inputs_per_participant': inputs_per_participant,
+            'solve_status': solve_status,
+            'num_solutions': num_solutions,
+            'taker_cj_output_attributed': taker_cj_output_attributed,
             'analysis_type': 'whitebox' if cj in whitebox_cj_objs else 'blackbox'
         }
         all_tx_stats.append(tx_stats)
@@ -464,9 +789,27 @@ def aggregate_tx_statistics(whitebox_cj_objs, blackbox_cj_objs):
             'max': tx_stats_df['output_count'].max(),
             'std': tx_stats_df['output_count'].std()
         }
-        return input_stats, output_stats, all_tx_stats
+
+        # Compute stats by solve status (for blackbox only)
+        blackbox_stats = tx_stats_df[tx_stats_df['analysis_type'] == 'blackbox']
+        solve_status_stats = {}
+        if len(blackbox_stats) > 0:
+            for status in ['Solved', 'Skipped', 'Unsolved']:
+                status_df = blackbox_stats[blackbox_stats['solve_status'] == status]
+                if len(status_df) > 0:
+                    taker_attributed_count = status_df['taker_cj_output_attributed'].sum()
+                    solve_status_stats[status] = {
+                        'count': len(status_df),
+                        'avg_inputs': status_df['input_count'].mean(),
+                        'avg_participants': status_df['participant_count'].mean(),
+                        'avg_inputs_per_participant': status_df['inputs_per_participant'].mean(),
+                        'taker_cj_output_attributed_count': int(taker_attributed_count),
+                        'taker_cj_output_attribution_rate': (taker_attributed_count / len(status_df) * 100) if len(status_df) > 0 else 0
+                    }
+
+        return input_stats, output_stats, all_tx_stats, solve_status_stats
     else:
-        return None, None, []
+        return None, None, [], {}
 
 def aggregate_detailed_cj_objects(whitebox_cj_objs, blackbox_cj_objs):
     detailed_cj_objects = []
@@ -593,7 +936,8 @@ def build_unified_report_data(
     whitebox_cj_objs,
     output_dir,
     client_roles=None,
-    fidelity_bond_stats=None
+    fidelity_bond_stats=None,
+    run_path=None
 ):
     """
     Aggregate and process all data for the unified CoinJoin report.
@@ -607,6 +951,7 @@ def build_unified_report_data(
         output_dir: Output directory for the report
         client_roles: Optional mapping of client_id to role
         fidelity_bond_stats: Optional FidelityBondStats object for JoinMarket FB analysis
+        run_path: Optional path to the run directory (for identifying sole takers)
     """
     env = Environment(
         loader=FileSystemLoader(os.path.dirname(__file__) or "."),
@@ -644,12 +989,31 @@ def build_unified_report_data(
     )
     chain_comparison_summary.update(taker_attribution_metrics)
 
+    # Identify sole takers and compute sole taker metrics
+    sole_taker_clients = set()
+    if run_path:
+        sole_taker_clients = identify_sole_takers(run_path)
+
+    if sole_taker_clients:
+        sole_taker_metrics = compute_sole_taker_cj_output_attribution_metrics(
+            blackbox_cj_objs=blackbox_cj_objs,
+            whitebox_cj_objs=whitebox_cj_objs,
+            sole_taker_clients=sole_taker_clients,
+        )
+        if sole_taker_metrics:
+            chain_comparison_summary.update(sole_taker_metrics)
+
     report_data['colored_tree_comparisons'] = aggregate_colored_tree_comparisons(chain_comparison_summary, chain_map)
-    input_stats, output_stats, all_tx_stats = aggregate_tx_statistics(whitebox_cj_objs, blackbox_cj_objs)
+
+    # Add detailed blackbox analysis statistics
+    report_data['blackbox_analysis_stats'] = aggregate_blackbox_analysis_stats(blackbox_cj_objs)
+
+    input_stats, output_stats, all_tx_stats, solve_status_stats = aggregate_tx_statistics(whitebox_cj_objs, blackbox_cj_objs)
     if input_stats and output_stats:
         report_data['tx_statistics'] = {
             'input_stats': input_stats,
             'output_stats': output_stats,
+            'solve_status_stats': solve_status_stats,
             'tx_count': len(all_tx_stats),
             'boxplot_img': '',  # Placeholder for visualization
             'histogram_img': ''

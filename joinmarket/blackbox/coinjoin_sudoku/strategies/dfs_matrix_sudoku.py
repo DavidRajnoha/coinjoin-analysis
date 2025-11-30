@@ -48,8 +48,19 @@ class MatrixSudokuDFSContext:
         subset_sizes = [len(self.viable_subsets_by_change[change_idx]) for change_idx in range(len(self.change_outputs))]
         subset_size_takers = [len(self.viable_subsets_by_change_taker[change_idx]) for change_idx in range(len(self.change_outputs))]
 
-        if sum(subset_sizes) > 300 or sum(subset_size_takers) > 1800:
+        if sum(subset_sizes) > 500 or sum(subset_size_takers) > 1800:
             print(f"Skipping DFS for {sum(subset_sizes)} subsets and {sum(subset_size_takers)} taker subsets")
+            # Diagnostic summary for skip
+            zero_viable = [i for i, c in enumerate(subset_sizes) if c == 0]
+            zero_viable_taker = [i for i, c in enumerate(subset_size_takers) if c == 0]
+            print(
+                "No blackbox attribution (DFS skipped): "
+                f"sweep={self.sweep_tx}, changes={len(self.change_outputs)}, "
+                f"subset_sizes={subset_sizes}, taker_subset_sizes={subset_size_takers}, "
+                f"zero_viable_changes={zero_viable}, zero_viable_changes_taker={zero_viable_taker}, "
+                f"miner_fee={int(self.miner_fee)}, fee_tol={int(self.fee_tol)}, "
+                f"maker_gain_max={int(self.maker_gain_max)}, cj_value={int(self.cj_value)}"
+            )
             return []
 
         if self.sweep_tx:
@@ -66,6 +77,21 @@ class MatrixSudokuDFSContext:
         end = time.time()
         print(f"DFS took {end - start} seconds")
 
+        # If no results, print a concise diagnostic summary to aid debugging
+        if not self.results:
+            zero_viable = [i for i, c in enumerate(subset_sizes) if c == 0]
+            zero_viable_taker = [i for i, c in enumerate(subset_size_takers) if c == 0]
+            change_values = [int(ch['value']) for ch in self.change_outputs]
+            print(
+                "No blackbox attribution results (DFS found 0 solutions): "
+                f"sweep={self.sweep_tx}, changes={len(self.change_outputs)}, "
+                f"subset_sizes={subset_sizes}, taker_subset_sizes={subset_size_takers}, "
+                f"zero_viable_changes={zero_viable}, zero_viable_changes_taker={zero_viable_taker}, "
+                f"change_values={change_values}, "
+                f"miner_fee={int(self.miner_fee)}, fee_tol={int(self.fee_tol)}, "
+                f"maker_gain_max={int(self.maker_gain_max)}, cj_value={int(self.cj_value)}, "
+                f"pruned_branches={self.prune_count}"
+            )
 
         return self.results
 

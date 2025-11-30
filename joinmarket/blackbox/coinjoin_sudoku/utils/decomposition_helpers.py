@@ -17,6 +17,22 @@ def to_sat(value):
     return (Decimal(str(value)) * SAT_MULT).quantize(SAT)
 
 def vin_value(vin, tx_map):
+    """Get the value of a transaction input.
+
+    First checks if the value is directly available in the vin (non-standard but useful
+    when previous transactions are not in tx_map, e.g., for real blockchain data).
+    If not available, looks up the previous transaction.
+    """
+    # Check if value is directly available (non-standard field added for real blockchain data)
+    if 'value' in vin:
+        return to_sat(vin['value'])
+
+    # Fall back to looking up the previous transaction
+    if vin['txid'] not in tx_map:
+        raise KeyError(f"Previous transaction {vin['txid']} not found in tx_map. "
+                      f"For real blockchain data, ensure the transformation script includes "
+                      f"'value' field in vin entries.")
+
     prev = tx_map[vin['txid']]['tx']
     return to_sat(next(o['value'] for o in prev['vout'] if o['n'] == vin['vout']))
 

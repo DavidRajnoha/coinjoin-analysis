@@ -6,6 +6,7 @@ Functions for loading blockchain and client data
 import os
 import json
 import glob
+import re
 from typing import Dict, List
 
 # Configuration
@@ -75,7 +76,12 @@ def load_client_addresses(run_path):
             addr_map[rec['address']] = client
             addresses_found += 1
             
-        print(f"Loaded {addresses_found} addresses for client {client}")
+        # Augment from logs (monkeypatch for missing keys.json entries)
+        augmented = augment_addresses_from_logs(root, client, addr_map)
+        if augmented > 0:
+            print(f"Augmented {augmented} addresses from logs for client {client} (keys.json had {addresses_found})")
+        else:
+            print(f"Loaded {addresses_found} addresses for client {client}")
             
     print(f"Total: {len(addr_map)} addresses mapped to {len(set(addr_map.values()))} clients")
     return addr_map
@@ -104,6 +110,56 @@ def find_clients(run_path: str) -> List[str]:
     except (FileNotFoundError, PermissionError) as e:
         print(f"Error accessing directory {run_path}: {e}")
         return []
+
+
+def augment_addresses_from_logs(root: str, client: str, addr_map: Dict[str, str]) -> int:
+    """Heuristically add addresses from per-client logs when keys.json misses entries.
+
+    This scans logs for lines containing "Added utxos" and extracts any "address: <addr>" tokens
+    in the subsequent lines (or anywhere in the file as a fallback). It merges newly found
+    addresses into addr_map, preferring existing mappings to avoid collisions.
+
+    Note: This is a temporary workaround to compensate for data-gathering issues.
+    """
+    logs_dir = os.path.join(root, client, 'logs')
+    if not os.path.isdir(logs_dir):
+        return 0
+
+    added = 0
+    # Regex: capture token following 'address:' up to comma/space
+    addr_re = re.compile(r"address:\s*([^,\s]+)")
+    files = sorted(glob.glob(os.path.join(logs_dir, "*.log")))
+    for path in files:
+        try:
+            with open(path, 'r', encoding='utf-8', errors='ignore') as f:
+                capture_block = False
+                for line in f:
+                    # Start of added utxos section
+                    if 'Added utxos' in line:
+                        capture_block = True
+                        continue
+                    # Heuristic: capture addresses on following lines until a non-data line resets
+                    if capture_block:
+                        # If the line looks like a typical log header, stop capture
+                        if line.startswith('20') or '[INFO' in line or '[DEBUG' in line:
+                            capture_block = False
+                            # continue scanning outside block as well
+                        # Extract address token if present
+                    m = addr_re.search(line)
+                    if m:
+                        addr = m.group(1)
+                        # Merge if not present; prefer existing mapping to avoid cross-client collisions
+                        if addr not in addr_map:
+                            addr_map[addr] = client
+                            added += 1
+                        else:
+                            if addr_map[addr] != client:
+                                print(f"Warning: address {addr} appears in logs of {client} but is owned by {addr_map[addr]} per mapping; keeping existing mapping")
+        except (IOError, OSError) as e:
+            print(f"Warning: failed reading log {path}: {e}")
+            continue
+
+    return added
 
 
 def load_json(path: str):

@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Fidelity Bond Analysis Report - JoinMarket</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 0; padding: 0; line-height: 1.6; color: #333; max-width: 100%; overflow-x: hidden; background-color: #f8f9fa; }
+    .container { max-width: 1400px; margin: 0 auto; padding: 2em; background-color: #fff; box-shadow: 0 0 10px rgba(0,0,0,0.1); border-radius: 8px; margin-top: 20px; margin-bottom: 20px; }
+    h1 { color: #4a90e2; border-bottom: 3px solid #4a90e2; padding-bottom: 0.5em; }
+    h2 { color: #2c3e50; margin-top: 2em; }
+    h3 { color: #34495e; margin-top: 1.5em; }
+    .stats-boxes { display: flex; flex-wrap: wrap; gap: 1.5em; margin-bottom: 2em; }
+    .stat-box { background: #f1f3f4; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.04); padding: 1.5em 2em; min-width: 200px; flex: 1; text-align: center; }
+    table { border-collapse: collapse; width: 100%; margin-bottom: 2em; }
+    th, td { border: 1px solid #ddd; padding: 0.5em 0.7em; text-align: left; vertical-align: top; }
+    th { background: #f6f8fa; cursor: pointer; user-select: none; }
+    th:hover { background: #e9ecef; }
+    tr:nth-child(even) { background: #fafbfc; }
+    code { font-family: monospace; background: #f4f4f4; padding: 2px 4px; border-radius: 3px; font-size: 0.95em; }
+    .truncated-text { max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .truncated-text:hover { white-space: normal; overflow: visible; max-width: none; }
+    .tx-row { cursor: pointer; }
+    .tx-row:hover { background-color: #f0f0f0 !important; }
+    .tx-details-row { background-color: #f9f9f9; }
+    p.description { color: #666; font-size: 0.95em; margin-top: -1em; margin-bottom: 1em; }
+    .metadata { margin-top: 2em; padding: 1em; background: #f8f9fa; border-left: 4px solid #4a90e2; }
+    .metadata p { margin: 0.5em 0; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Fidelity Bond Analysis Report</h1>
+    <p style="color: #666; font-size: 1.1em; margin-bottom: 2em;">
+      Analysis of fidelity bond usage in JoinMarket CoinJoin transactions
+    </p>
+
+    {% if fb_stats %}
+    <!-- Summary Statistics -->
+    <h2>Summary Statistics</h2>
+    <h3 style="margin-top: 0;">Participation</h3>
+    <div class="stats-boxes">
+      <div class="stat-box">
+        <strong>Total Transactions:</strong>
+        {{ fb_stats.total_transactions }}
+      </div>
+      <div class="stat-box">
+        <strong>Total Maker Participations:</strong>
+        {{ fb_stats.total_maker_participations }}
+      </div>
+      <div class="stat-box" style="background-color: #d4edda;">
+        <strong>FB Maker Participations:</strong>
+        {{ fb_stats.fb_maker_participations }}
+      </div>
+      <div class="stat-box" style="background-color: #f8d7da;">
+        <strong>Non-FB Maker Participations:</strong>
+        {{ fb_stats.non_fb_maker_participations }}
+      </div>
+      <div class="stat-box" style="background-color: #cce5ff; font-size: 1.1em;">
+        <strong>FB Participation Rate:</strong>
+        {{ "%.2f"|format(fb_stats.fb_participation_rate) }}%
+      </div>
+      <div class="stat-box" style="background-color: #fff3cd;">
+        <strong>Non-FB Participation Rate:</strong>
+        {{ "%.2f"|format(100.0 - fb_stats.fb_participation_rate) }}%
+      </div>
+    </div>
+
+    <h3>Fidelity Bond Values</h3>
+    <div class="stats-boxes">
+      <div class="stat-box">
+        <strong>Average FB Value:</strong>
+        {{ "%.2f"|format(fb_stats.avg_fb_value) if fb_stats.avg_fb_value > 0 else "N/A" }}
+      </div>
+      <div class="stat-box">
+        <strong>Median FB Value:</strong>
+        {{ "%.2f"|format(fb_stats.median_fb_value) if fb_stats.median_fb_value > 0 else "N/A" }}
+      </div>
+      <div class="stat-box">
+        <strong>Min FB Value:</strong>
+        {{ "%.2f"|format(fb_stats.min_fb_value) if fb_stats.min_fb_value > 0 else "N/A" }}
+      </div>
+      <div class="stat-box">
+        <strong>Max FB Value:</strong>
+        {{ "%.2f"|format(fb_stats.max_fb_value) if fb_stats.max_fb_value > 0 else "N/A" }}
+      </div>
+      {% if fb_stats.fb_value_participation_correlation is not none %}
+      <div class="stat-box" style="background-color: #e7f3ff;">
+        <strong>FB Value ↔ Participation Correlation:</strong>
+        {{ "%.3f"|format(fb_stats.fb_value_participation_correlation) }}
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- FB Value vs Participation Chart -->
+    <h3>Fidelity Bond Value vs. Participation</h3>
+    <p class="description">
+      Scatter plot showing the relationship between fidelity bond values and maker participation counts.
+    </p>
+    <div style="max-width: 900px; margin: 2em auto; padding: 1em; background: #fff; border: 1px solid #ddd; border-radius: 8px;">
+      <canvas id="fbValueChart"></canvas>
+    </div>
+
+    <!-- Maker Profiles Table -->
+    <h2>Maker Profiles</h2>
+    <p class="description">
+      Overview of all makers with their fidelity bond information and participation statistics. Click column headers to sort.
+    </p>
+    <table id="maker-profiles-table">
+      <thead>
+        <tr>
+          <th onclick="sortTable(0, 'maker-profiles-table')">Client ID</th>
+          <th onclick="sortTable(1, 'maker-profiles-table')">Has FB</th>
+          <th onclick="sortTable(2, 'maker-profiles-table')">Bond Amount (BTC)</th>
+          <th onclick="sortTable(3, 'maker-profiles-table')">Bond Locktime</th>
+          <th onclick="sortTable(4, 'maker-profiles-table')">FB Value</th>
+          <th onclick="sortTable(5, 'maker-profiles-table')">Participations</th>
+          <th onclick="sortTable(6, 'maker-profiles-table')">Total Fees (BTC)</th>
+          <th onclick="sortTable(7, 'maker-profiles-table')">Avg Fee/TX (BTC)</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for client_id, profile in fb_stats.maker_profiles.items()|sort(attribute='1.total_participations', reverse=True) %}
+        <tr>
+          <td><code>{{ client_id }}</code></td>
+          <td style="text-align: center; {% if profile.has_fidelity_bond %}background-color: #d4edda; font-weight: bold;{% else %}background-color: #f8d7da;{% endif %}">
+            {{ '✓' if profile.has_fidelity_bond else '✗' }}
+          </td>
+          <td style="text-align: right;">
+            {% if profile.bond_amount %}
+              {{ "%.8f"|format(profile.bond_amount / 100000000.0) }}
+            {% else %}
+              -
+            {% endif %}
+          </td>
+          <td style="text-align: center;">
+            {{ profile.bond_locktime if profile.bond_locktime else '-' }}
+          </td>
+          <td style="text-align: right; {% if profile.bond_value and profile.bond_value > 0 %}background-color: #e7f3ff;{% endif %}">
+            {% if profile.bond_value and profile.bond_value > 0 %}
+              {{ "%.2f"|format(profile.bond_value) }}
+            {% else %}
+              -
+            {% endif %}
+          </td>
+          <td style="text-align: right;">{{ profile.total_participations }}</td>
+          <td style="text-align: right;">{{ "%.8f"|format(profile.total_fees_earned) }}</td>
+          <td style="text-align: right;">
+            {% if profile.total_participations > 0 %}
+              {{ "%.8f"|format(profile.total_fees_earned / profile.total_participations) }}
+            {% else %}
+              0.00000000
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <!-- Transaction Details Table -->
+    <h2>Transaction Details</h2>
+    <p class="description">
+      Per-transaction breakdown showing fidelity bond participation. Click on a transaction row to expand/collapse maker details.
+    </p>
+    <table id="tx-details-table">
+      <thead>
+        <tr>
+          <th onclick="sortTable(0, 'tx-details-table')">TXID</th>
+          <th onclick="sortTable(1, 'tx-details-table')">Block</th>
+          <th onclick="sortTable(2, 'tx-details-table')">Timestamp</th>
+          <th onclick="sortTable(3, 'tx-details-table')">CJ Amount (BTC)</th>
+          <th onclick="sortTable(4, 'tx-details-table')">FB Makers</th>
+          <th onclick="sortTable(5, 'tx-details-table')">Non-FB Makers</th>
+          <th onclick="sortTable(6, 'tx-details-table')">Total Makers</th>
+          <th onclick="sortTable(7, 'tx-details-table')">Taker</th>
+          <th style="text-align: center;">Details</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for tx in fb_stats.transaction_details %}
+        <tr class="tx-row" onclick="toggleTxDetails('tx-{{ loop.index }}')">
+          <td><code class="truncated-text">{{ tx.txid }}</code></td>
+          <td style="text-align: right;">{{ tx.block_height }}</td>
+          <td>{{ tx.timestamp if tx.timestamp else '-' }}</td>
+          <td style="text-align: right;">{{ "%.8f"|format(tx.cj_amount) }}</td>
+          <td style="text-align: center; background-color: #d4edda; font-weight: bold;">{{ tx.fb_maker_count }}</td>
+          <td style="text-align: center; background-color: #f8d7da;">{{ tx.non_fb_maker_count }}</td>
+          <td style="text-align: center;">{{ tx.fb_maker_count + tx.non_fb_maker_count }}</td>
+          <td><code>{{ tx.taker if tx.taker else '-' }}</code></td>
+          <td style="text-align: center; cursor: pointer;">
+            <span id="tx-{{ loop.index }}-arrow">▼</span>
+          </td>
+        </tr>
+        <!-- Expandable details row -->
+        <tr id="tx-{{ loop.index }}-details" class="tx-details-row" style="display: none;">
+          <td colspan="9" style="background-color: #f9f9f9; padding: 1.5em;">
+            <div style="margin-bottom: 1em;">
+              <strong>Transaction:</strong> <code style="font-size: 0.9em;">{{ tx.txid }}</code>
+            </div>
+
+            <!-- Makers breakdown -->
+            <div style="margin-bottom: 1em;">
+              <strong>Makers ({{ tx.makers|length }}):</strong>
+              <table style="margin-top: 0.5em; width: 100%; background: white;">
+                <thead>
+                  <tr style="background-color: #e9ecef;">
+                    <th>Client ID</th>
+                    <th>Has FB</th>
+                    <th>Bond Amount (BTC)</th>
+                    <th>Bond Locktime</th>
+                    <th>FB Value</th>
+                    <th>Fee Earned (BTC)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for maker in tx.makers %}
+                  <tr>
+                    <td><code>{{ maker.client_id }}</code></td>
+                    <td style="text-align: center; {% if maker.has_fidelity_bond %}background-color: #d4edda; font-weight: bold;{% else %}background-color: #f8d7da;{% endif %}">
+                      {{ '✓' if maker.has_fidelity_bond else '✗' }}
+                    </td>
+                    <td style="text-align: right;">
+                      {% if maker.bond_amount %}
+                        {{ "%.8f"|format(maker.bond_amount / 100000000.0) }}
+                      {% else %}
+                        -
+                      {% endif %}
+                    </td>
+                    <td style="text-align: center;">{{ maker.bond_locktime if maker.bond_locktime else '-' }}</td>
+                    <td style="text-align: right; {% if maker.bond_value and maker.bond_value > 0 %}background-color: #e7f3ff;{% endif %}">
+                      {% if maker.bond_value and maker.bond_value > 0 %}
+                        {{ "%.2f"|format(maker.bond_value) }}
+                      {% else %}
+                        -
+                      {% endif %}
+                    </td>
+                    <td style="text-align: right;">{{ "%.8f"|format(maker.delta) }}</td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Tumblers (if any) -->
+            {% if tx.tumblers %}
+            <div>
+              <strong>Tumblers ({{ tx.tumblers|length }}):</strong>
+              <table style="margin-top: 0.5em; width: 100%; background: white;">
+                <thead>
+                  <tr style="background-color: #fff3cd;">
+                    <th>Client ID</th>
+                    <th>Fee Paid (BTC)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for tumbler in tx.tumblers %}
+                  <tr>
+                    <td><code>{{ tumbler.client_id }}</code></td>
+                    <td style="text-align: right;">{{ "%.8f"|format(tumbler.delta) }}</td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    {% if metadata %}
+    <div class="metadata">
+      <h3 style="margin-top: 0;">Report Metadata</h3>
+      <p><strong>Data Directory:</strong> {{ metadata.data_dir }}</p>
+      <p><strong>Generated:</strong> {{ metadata.timestamp }}</p>
+      {% if metadata.scenario_name %}
+      <p><strong>Scenario:</strong> {{ metadata.scenario_name }}</p>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    {% else %}
+    <p style="color: #999; font-size: 1.2em; text-align: center; padding: 3em;">
+      No fidelity bond data available for this analysis.
+    </p>
+    {% endif %}
+  </div>
+
+  <script>
+    // Toggle transaction details
+    function toggleTxDetails(txId) {
+      var detailsRow = document.getElementById(txId + '-details');
+      var arrow = document.getElementById(txId + '-arrow');
+      if (detailsRow.style.display === 'none') {
+        detailsRow.style.display = 'table-row';
+        arrow.textContent = '▲';
+      } else {
+        detailsRow.style.display = 'none';
+        arrow.textContent = '▼';
+      }
+    }
+
+    // Simple table sorting function
+    function sortTable(columnIndex, tableId) {
+      var table = document.getElementById(tableId);
+      var tbody = table.getElementsByTagName('tbody')[0];
+      var rows = Array.from(tbody.getElementsByTagName('tr'));
+
+      // Filter out detail rows for tx-details-table
+      if (tableId === 'tx-details-table') {
+        rows = rows.filter(row => row.className === 'tx-row');
+      }
+
+      var isAscending = table.getAttribute('data-sort-asc') === 'true';
+
+      rows.sort(function(a, b) {
+        var aValue = a.getElementsByTagName('td')[columnIndex].textContent.trim();
+        var bValue = b.getElementsByTagName('td')[columnIndex].textContent.trim();
+
+        // Try to parse as number
+        var aNum = parseFloat(aValue.replace(/[^0-9.-]/g, ''));
+        var bNum = parseFloat(bValue.replace(/[^0-9.-]/g, ''));
+
+        if (!isNaN(aNum) && !isNaN(bNum)) {
+          return isAscending ? aNum - bNum : bNum - aNum;
+        } else {
+          return isAscending ? aValue.localeCompare(bValue) : bValue.localeCompare(aValue);
+        }
+      });
+
+      // Re-insert rows
+      rows.forEach(function(row) {
+        tbody.appendChild(row);
+        // For tx-details-table, also move the corresponding details row
+        if (tableId === 'tx-details-table') {
+          var detailsRow = row.nextElementSibling;
+          if (detailsRow && detailsRow.className === 'tx-details-row') {
+            tbody.appendChild(detailsRow);
+          }
+        }
+      });
+
+      table.setAttribute('data-sort-asc', (!isAscending).toString());
+    }
+
+    // Create FB Value vs Participation chart
+    {% if fb_stats and fb_stats.maker_profiles %}
+    document.addEventListener('DOMContentLoaded', function() {
+      var ctx = document.getElementById('fbValueChart').getContext('2d');
+
+      // Prepare data for makers with fidelity bonds
+      var chartData = [
+        {% for client_id, profile in fb_stats.maker_profiles.items() %}
+        {% if profile.has_fidelity_bond and profile.bond_value %}
+        {
+          x: {{ profile.bond_value }},
+          y: {{ profile.total_participations }},
+          label: '{{ client_id }}'
+        },
+        {% endif %}
+        {% endfor %}
+      ];
+
+      new Chart(ctx, {
+        type: 'scatter',
+        data: {
+          datasets: [{
+            label: 'Makers with Fidelity Bonds',
+            data: chartData,
+            backgroundColor: 'rgba(74, 144, 226, 0.6)',
+            borderColor: 'rgba(74, 144, 226, 1)',
+            borderWidth: 2,
+            pointRadius: 8,
+            pointHoverRadius: 10
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: true,
+          aspectRatio: 2,
+          plugins: {
+            title: {
+              display: true,
+              text: 'Fidelity Bond Value vs. Transaction Participation',
+              font: { size: 16 }
+            },
+            legend: {
+              display: true,
+              position: 'top'
+            },
+            tooltip: {
+              callbacks: {
+                label: function(context) {
+                  var point = context.raw;
+                  return point.label + ': FB Value = ' + point.x.toFixed(2) + ', Participations = ' + point.y;
+                }
+              }
+            }
+          },
+          scales: {
+            x: {
+              type: 'linear',
+              title: {
+                display: true,
+                text: 'Fidelity Bond Value',
+                font: { size: 14 }
+              },
+              beginAtZero: true
+            },
+            y: {
+              type: 'linear',
+              title: {
+                display: true,
+                text: 'Transaction Participations',
+                font: { size: 14 }
+              },
+              beginAtZero: true,
+              ticks: {
+                stepSize: 1
+              }
+            }
+          }
+        }
+      });
+    });
+    {% endif %}
+  </script>
+</body>
+</html>

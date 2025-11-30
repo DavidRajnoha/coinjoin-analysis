@@ -8,19 +8,79 @@
   <div class="stat-box"><strong>Detection Agreement:</strong> {{ report_data.txid_comparison.detection_agreement }}%</div>
 </div>
 
+<h3>Blackbox CoinJoin Object Statistics</h3>
+<div class="stats-boxes">
+    <div class="stat-box"><strong>Total Transactions:</strong> {{ report_data.blackbox_obj_stats.total_transactions }}</div>
+    <div class="stat-box"><strong>Total Participants:</strong> {{ report_data.blackbox_obj_stats.total_participants }}</div>
+    <div class="stat-box"><strong>Avg. Participants/TX:</strong> {{ report_data.blackbox_obj_stats.avg_participants }}</div>
+    <div class="stat-box"><strong>Avg. Fee/TX:</strong> {{ report_data.blackbox_obj_stats.avg_fee | safe_format_float }} BTC</div>
+</div>
+
+{% if report_data.blackbox_analysis_stats %}
+<h3>Blackbox Analysis Details</h3>
+<div class="stats-boxes">
+    <div class="stat-box" style="background-color: #d4edda;"><strong>Solved:</strong> {{ report_data.blackbox_analysis_stats.solved }} / {{ report_data.blackbox_analysis_stats.total_coinjoins }}</div>
+    <div class="stat-box" style="background-color: {% if report_data.blackbox_analysis_stats.solve_rate >= 80 %}#d4edda{% elif report_data.blackbox_analysis_stats.solve_rate >= 50 %}#fff3cd{% else %}#f8d7da{% endif%};"><strong>Solve Rate:</strong> {{ "%.1f"|format(report_data.blackbox_analysis_stats.solve_rate) }}%</div>
+    <div class="stat-box" style="background-color: #f8d7da;"><strong>Unsolved:</strong> {{ report_data.blackbox_analysis_stats.unsolved }}</div>
+    <div class="stat-box"><strong>Skipped (too large):</strong> {{ report_data.blackbox_analysis_stats.skipped }}</div>
+    <div class="stat-box"><strong>No solution found:</strong> {{ report_data.blackbox_analysis_stats.no_solution }}</div>
+</div>
+
+<div class="stats-boxes">
+    <div class="stat-box"><strong>Avg. Solutions per TX:</strong> {{ "%.2f"|format(report_data.blackbox_analysis_stats.avg_solutions) }}</div>
+    <div class="stat-box"><strong>Max Solutions:</strong> {{ report_data.blackbox_analysis_stats.max_solutions }}</div>
+    <div class="stat-box" style="background-color: #fff3cd;"><strong>Multiple Solutions:</strong> {{ report_data.blackbox_analysis_stats.multiple_solutions }} ({{ "%.1f"|format((report_data.blackbox_analysis_stats.multiple_solutions / report_data.blackbox_analysis_stats.solved * 100) if report_data.blackbox_analysis_stats.solved > 0 else 0) }}%)</div>
+</div>
+
+{% if report_data.blackbox_analysis_stats.failure_details %}
+<details>
+    <summary><strong>Failure Details ({{ report_data.blackbox_analysis_stats.failure_details|length }} transactions)</strong></summary>
+    <table>
+        <thead>
+            <tr>
+                <th>TXID</th>
+                <th>Reason</th>
+                <th>Inputs</th>
+                <th>Outputs</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for failure in report_data.blackbox_analysis_stats.failure_details %}
+            <tr {% if failure.skipped %}style="background-color: #ffe6e6;"{% endif %}>
+                <td><code class="truncated-text">{{ failure.txid }}</code></td>
+                <td>{{ failure.reason }}</td>
+                <td>{{ failure.inputs }}</td>
+                <td>{{ failure.outputs }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</details>
+{% endif %}
+{% endif %}
+
+<h3>Whitebox CoinJoin Object Statistics</h3>
+<div class="stats-boxes">
+    <div class="stat-box"><strong>Total Transactions:</strong> {{ report_data.whitebox_obj_stats.total_transactions }}</div>
+    <div class="stat-box"><strong>Total Participants:</strong> {{ report_data.whitebox_obj_stats.total_participants }}</div>
+    <div class="stat-box"><strong>Avg. Participants/TX:</strong> {{ report_data.whitebox_obj_stats.avg_participants }}</div>
+    <div class="stat-box"><strong>Avg. Fee/TX:</strong> {{ report_data.whitebox_obj_stats.avg_fee | safe_format_float }} BTC</div>
+</div>
+
+
 <h2>Object-Level CoinJoin Comparison</h2>
 <div class="stats-boxes">
     <div class="stat-box"><strong>Compared TXs:</strong> {{ report_data.object_comparison.comparison_tx_count }}</div>
     <div class="stat-box"><strong>Avg. Overall Role Success (all BB):</strong> {{ report_data.object_comparison.overall_role_success_avg }}%</div>
     <div class="stat-box"><strong>Participant Match Rate:</strong> {{ report_data.object_comparison.participant_match_rate }}%</div>
-    <div class="stat-box"><strong>Avg. Taker Match:</strong> {{ report_data.object_comparison.taker_match_avg }}%</div>
     <div class="stat-box"><strong>Avg. UTXO Attribution Accuracy:</strong> {{ report_data.object_comparison.utxo_accuracy_avg }}%</div>
-    <div class="stat-box"><strong>Taker Mapping Consistency (occurrences):</strong>
+    <div class="stat-box" style="background-color: #b8c5dd;"><strong>Avg. Taker Match:</strong> {{ report_data.object_comparison.taker_match_avg }}%</div>
+    <div class="stat-box" style="background-color: #b8c5dd;"><strong>Correctly Mapped Identities Per-Transaction:</strong>
         {% if report_data.object_comparison.taker_mapping_occurrence_consistency is not none %}
             {{ report_data.object_comparison.taker_mapping_occurrence_consistency }}%
         {% else %}N/A{% endif %}
     </div>
-    <div class="stat-box"><strong>Taker Mapping Consistency (clients):</strong>
+    <div class="stat-box"><strong>Consistently Mapped Taker Identities:</strong>
         {% if report_data.object_comparison.taker_mapping_client_consistency is not none %}
             {{ report_data.object_comparison.taker_mapping_client_consistency }}%
         {% else %}N/A{% endif %}
@@ -32,21 +92,162 @@
     </div>
 </div>
 
-<h3>Blackbox CoinJoin Object Statistics</h3>
+<h3>Taker Role Attribution Metrics</h3>
 <div class="stats-boxes">
-    <div class="stat-box"><strong>Total Transactions:</strong> {{ report_data.blackbox_obj_stats.total_transactions }}</div>
-    <div class="stat-box"><strong>Total Participants:</strong> {{ report_data.blackbox_obj_stats.total_participants }}</div>
-    <div class="stat-box"><strong>Avg. Participants/TX:</strong> {{ report_data.blackbox_obj_stats.avg_participants }}</div>
-    <div class="stat-box"><strong>Avg. Fee/TX:</strong> {{ report_data.blackbox_obj_stats.avg_fee | safe_format_float }} BTC</div>
+    <div class="stat-box" style="background-color: #b8c5dd;"><strong>Taker Sensitivity:</strong>
+        {% if report_data.object_comparison.taker_sensitivity_avg is not none %}
+            {{ report_data.object_comparison.taker_sensitivity_avg }}%
+        {% else %}N/A{% endif %}
+        <br><small>% of TXs where exactly 1 taker was correctly matched (= Avg. Taker Match)</small>
+    </div>
+    <div class="stat-box" style="background-color: #d4edda;"><strong>Taker Specificity:</strong>
+        {% if report_data.object_comparison.taker_specificity_avg is not none %}
+            {{ report_data.object_comparison.taker_specificity_avg }}%
+        {% else %}N/A{% endif %}
+        <br><small>% of WB maker participants correctly NOT identified as takers in BB</small>
+    </div>
 </div>
 
-<h3>Whitebox CoinJoin Object Statistics</h3>
+
+<h3>Chain Statistics</h3>
 <div class="stats-boxes">
-    <div class="stat-box"><strong>Total Transactions:</strong> {{ report_data.whitebox_obj_stats.total_transactions }}</div>
-    <div class="stat-box"><strong>Total Participants:</strong> {{ report_data.whitebox_obj_stats.total_participants }}</div>
-    <div class="stat-box"><strong>Avg. Participants/TX:</strong> {{ report_data.whitebox_obj_stats.avg_participants }}</div>
-    <div class="stat-box"><strong>Avg. Fee/TX:</strong> {{ report_data.whitebox_obj_stats.avg_fee | safe_format_float }} BTC</div>
+    <div class="stat-box"><strong>Total Blackbox Chains:</strong> {{ report_data.chain_comparison_summary.total_blackbox_chains }}</div>
+    <div class="stat-box"><strong>Total Whitebox Chains:</strong> {{ report_data.chain_comparison_summary.total_whitebox_chains }}</div>
+    <div class="stat-box"><strong>Matched Pairs:</strong> {{ report_data.chain_comparison_summary.num_matched_pairs }}</div>
+    <div class="stat-box"><strong>Fully Matched Pairs:</strong> {{ report_data.chain_comparison_summary.num_fully_matched_pairs }}</div>
+    <div class="stat-box"><strong>Partially Matched Pairs:</strong> {{ report_data.chain_comparison_summary.num_partially_matched_pairs }}</div>
+    </div>
+
+<h3>Chain Attribution Statistics</h3>
+<div class="stats-boxes">
+    <div class="stat-box" style="background-color: #b8c5dd;"><strong>Chain Identification Coverage (Nodes) - Sensitivity:</strong>
+        {% if report_data.chain_comparison_summary.chain_identification_coverage_nodes is not none %}
+            {{ report_data.chain_comparison_summary.chain_identification_coverage_nodes }}%
+        {% else %}
+            N/A
+        {% endif %}
+        <br><small>WB nodes correctly identified as root identity in BB</small>
+    </div>
+    <div class="stat-box" style="background-color: #d4edda;"><strong>Chain Separation Specificity:</strong>
+        {% if report_data.chain_comparison_summary.chain_identification_specificity_nodes is not none %}
+            {{ report_data.chain_comparison_summary.chain_identification_specificity_nodes }}%
+        {% else %}
+            N/A
+        {% endif %}
+        <br><small>% of WB chains kept separate by BB (not merged with other WB chains)</small>
+    </div>
+    <div class="stat-box" style="background-color: #b8c5dd;"><strong>Chain Identification Coverage (Leaves) - Sensitivity:</strong>
+        {% if report_data.chain_comparison_summary.chain_identification_coverage_leaves is not none %}
+            {{ report_data.chain_comparison_summary.chain_identification_coverage_leaves }}%
+        {% else %}
+            N/A
+        {% endif %}
+        <br><small>WB leaf nodes correctly identified as root identity in BB</small>
+    </div>
+    <div class="stat-box" style="background-color: #d4edda;"><strong>Chain Separation Specificity (same as above):</strong>
+        {% if report_data.chain_comparison_summary.chain_identification_specificity_leaves is not none %}
+            {{ report_data.chain_comparison_summary.chain_identification_specificity_leaves }}%
+        {% else %}
+            N/A
+        {% endif %}
+        <br><small>Chain-level metric (identical for nodes and leaves)</small>
+    </div>
+    <div class="stat-box"><strong>Root Mapping Strict Consistency (Nodes):</strong>
+        {% if report_data.chain_comparison_summary.chain_root_mapping_strict_consistency_nodes is not none %}
+            {{ report_data.chain_comparison_summary.chain_root_mapping_strict_consistency_nodes }}%
+        {% else %}
+            N/A
+        {% endif %}
+    </div>
+    <div class="stat-box"><strong>Root Mapping Strict Consistency (Leaves):</strong>
+        {% if report_data.chain_comparison_summary.chain_root_mapping_strict_consistency_leaves is not none %}
+            {{ report_data.chain_comparison_summary.chain_root_mapping_strict_consistency_leaves }}%
+        {% else %}
+            N/A
+        {% endif %}
+    </div>
 </div>
+
+<h3>Taker CoinJoin Output Attribution</h3>
+<div class="stats-boxes">
+    <div class="stat-box" style="background-color: #b8c5dd;"><strong>Blackbox Coverage:</strong>
+        {% if report_data.chain_comparison_summary.taker_cj_output_coverage_bb is not none %}
+            {{ report_data.chain_comparison_summary.taker_cj_output_coverage_bb }}%
+        {% else %}
+            N/A
+        {% endif %}
+        {% if report_data.chain_comparison_summary.taker_cj_output_details %}
+            <br><small>({{ report_data.chain_comparison_summary.taker_cj_output_details.bb_attributed_count }}/{{ report_data.chain_comparison_summary.taker_cj_output_details.bb_total_takers }} takers)</small>
+        {% endif %}
+    </div>
+    <div class="stat-box"><strong>Whitebox Coverage:</strong>
+        {% if report_data.chain_comparison_summary.taker_cj_output_coverage_wb is not none %}
+            {{ report_data.chain_comparison_summary.taker_cj_output_coverage_wb }}%
+        {% else %}
+            N/A
+        {% endif %}
+        {% if report_data.chain_comparison_summary.taker_cj_output_details %}
+            <br><small>({{ report_data.chain_comparison_summary.taker_cj_output_details.wb_attributed_count }}/{{ report_data.chain_comparison_summary.taker_cj_output_details.wb_total_takers }} takers)</small>
+        {% endif %}
+    </div>
+    <div class="stat-box" style="background-color: #b8c5dd;"><strong>BB↔WB Attribution Sensitivity:</strong>
+        {% if report_data.chain_comparison_summary.taker_cj_output_attribution_accuracy is not none %}
+            {{ report_data.chain_comparison_summary.taker_cj_output_attribution_accuracy }}%
+        {% else %}
+            N/A
+        {% endif %}
+        {% if report_data.chain_comparison_summary.taker_cj_output_details %}
+            <br><small>({{ report_data.chain_comparison_summary.taker_cj_output_details.common_tx_attribution_matches }}/{{ report_data.chain_comparison_summary.taker_cj_output_details.common_tx_attribution_total }} taker outputs)</small>
+        {% endif %}
+        <br><small>WB taker outputs correctly attributed as taker in BB</small>
+    </div>
+    <div class="stat-box" style="background-color: #d4edda;"><strong>BB↔WB Attribution Specificity:</strong>
+        {% if report_data.chain_comparison_summary.taker_cj_output_attribution_specificity is not none %}
+            {{ report_data.chain_comparison_summary.taker_cj_output_attribution_specificity }}%
+        {% else %}
+            N/A
+        {% endif %}
+        {% if report_data.chain_comparison_summary.taker_cj_output_details %}
+            <br><small>({{ report_data.chain_comparison_summary.taker_cj_output_details.common_tx_attribution_true_negatives }}/{{ report_data.chain_comparison_summary.taker_cj_output_details.common_tx_attribution_negatives_total }} maker outputs)</small>
+        {% endif %}
+        <br><small>WB maker outputs correctly NOT attributed as taker in BB</small>
+    </div>
+</div>
+
+{% if report_data.chain_comparison_summary.sole_taker_count %}
+<h3>Sole Taker CJ Output Attribution Metrics</h3>
+<p style="font-style: italic; color: #555;">
+    Sole takers are standard takers without TUMBLE.log (not tumblers) and without yigen-statement.csv (not makers).
+    These metrics evaluate blackbox performance on single-transaction takers only.
+</p>
+<div class="stats-grid">
+    <div class="stat-box"><strong>Sole Taker Count:</strong> {{ report_data.chain_comparison_summary.sole_taker_count }}</div>
+    <div class="stat-box"><strong>Transactions with Sole Takers:</strong> {{ report_data.chain_comparison_summary.sole_taker_tx_count }}</div>
+    <div class="stat-box" style="background-color: #b8c5dd;"><strong>Sole Taker Attribution Sensitivity:</strong>
+        {% if report_data.chain_comparison_summary.sole_taker_cj_output_attribution_accuracy is not none %}
+            {{ report_data.chain_comparison_summary.sole_taker_cj_output_attribution_accuracy }}%
+        {% else %}
+            N/A
+        {% endif %}
+        {% if report_data.chain_comparison_summary.sole_taker_details %}
+            <br><small>({{ report_data.chain_comparison_summary.sole_taker_details.attribution_matches }}/{{ report_data.chain_comparison_summary.sole_taker_details.attribution_total }} sole taker outputs)</small>
+        {% endif %}
+        <br><small>Sole taker CJ outputs correctly attributed as taker in BB</small>
+    </div>
+    <div class="stat-box" style="background-color: #d4edda;"><strong>Sole Taker Attribution Specificity:</strong>
+        {% if report_data.chain_comparison_summary.sole_taker_cj_output_attribution_specificity is not none %}
+            {{ report_data.chain_comparison_summary.sole_taker_cj_output_attribution_specificity }}%
+        {% else %}
+            N/A
+        {% endif %}
+        {% if report_data.chain_comparison_summary.sole_taker_details %}
+            <br><small>({{ report_data.chain_comparison_summary.sole_taker_details.attribution_true_negatives }}/{{ report_data.chain_comparison_summary.sole_taker_details.attribution_negatives_total }} sole taker maker outputs)</small>
+        {% endif %}
+        <br><small>Sole taker maker outputs correctly NOT attributed as taker in BB</small>
+    </div>
+</div>
+{% endif %}
+
 
 <h3>Detailed Object Comparison per Transaction</h3>
 <table>
@@ -142,6 +343,36 @@
         <img src="data:image/png;base64,{{ report_data.tx_statistics.histogram_img }}" alt="Input-Output Histograms" style="max-width:100%; border:1px solid #ddd; border-radius:4px;">
     </div>
 </div>
+{% if report_data.tx_statistics.solve_status_stats %}
+<h3>Blackbox Analysis Statistics by Solve Status</h3>
+<table>
+    <thead>
+        <tr>
+            <th>Solve Status</th>
+            <th>Count</th>
+            <th>Avg. Inputs</th>
+            <th>Avg. Participants</th>
+            <th>Avg. Inputs/Participant</th>
+            <th>Taker CJ Output Attributed</th>
+            <th>Attribution Rate</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for status, stats in report_data.tx_statistics.solve_status_stats.items() %}
+        <tr {% if status == 'Solved' %}style="background-color: #d4edda;"{% elif status == 'Skipped' %}style="background-color: #f8d7da;"{% else %}style="background-color: #fff3cd;"{% endif %}>
+            <td><strong>{{ status }}</strong></td>
+            <td>{{ stats.count }}</td>
+            <td>{{ "%.2f"|format(stats.avg_inputs) }}</td>
+            <td>{{ "%.2f"|format(stats.avg_participants) }}</td>
+            <td>{{ "%.2f"|format(stats.avg_inputs_per_participant) }}</td>
+            <td>{{ stats.taker_cj_output_attributed_count }} / {{ stats.count }}</td>
+            <td>{{ "%.1f"|format(stats.taker_cj_output_attribution_rate) }}%</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endif %}
+
 <h3>Per-Transaction Statistics</h3>
 <table>
     <thead>
@@ -151,20 +382,28 @@
             <th>Input Count</th>
             <th>Output Count</th>
             <th>Participant Count</th>
+            <th>Inputs/Participant</th>
             <th>CJ Amount (BTC)</th>
             <th>Analysis Type</th>
+            <th>Solve Status</th>
+            <th>Num Solutions</th>
+            <th>Taker CJ Output</th>
         </tr>
     </thead>
     <tbody>
         {% for tx in report_data.tx_stats_list %}
-        <tr>
+        <tr {% if tx.solve_status == 'Solved' %}style="background-color: #d4edda;"{% elif tx.solve_status == 'Skipped' %}style="background-color: #f8d7da;"{% elif tx.solve_status == 'Unsolved' %}style="background-color: #fff3cd;"{% endif %}>
             <td><code class="truncated-text">{{ tx.txid }}</code></td>
             <td>{{ tx.block_height }}</td>
             <td>{{ tx.input_count }}</td>
             <td>{{ tx.output_count }}</td>
             <td>{{ tx.participant_count }}</td>
+            <td>{{ "%.2f"|format(tx.inputs_per_participant) }}</td>
             <td>{{ tx.cj_amount | safe_format_float }}</td>
             <td>{{ tx.analysis_type }}</td>
+            <td>{{ tx.solve_status if tx.solve_status else 'N/A' }}</td>
+            <td>{% if tx.num_solutions is not none %}{{ tx.num_solutions }}{% else %}N/A{% endif %}</td>
+            <td>{% if tx.taker_cj_output_attributed %}✓{% else %}-{% endif %}</td>
         </tr>
         {% endfor %}
     </tbody>
@@ -274,8 +513,9 @@
 
 <!-- CoinJoin Chain Analysis Section -->
 <h2>CoinJoin Chain Analysis</h2>
-<h3>Identified Blackbox Chains ({{ report_data.blackbox_identified_chains | length }})</h3>
+<h3>Identified Blackbox Chains (showing chains with length > 1)</h3>
 {% if report_data.blackbox_identified_chains %}
+{% set ns = namespace(found=false) %}
 <table>
     <thead>
         <tr>
@@ -289,17 +529,23 @@
     </thead>
     <tbody>
         {% for chain in report_data.blackbox_identified_chains %}
+        {% if chain.length() > 1 %}
+        {% set ns.found = true %}
         <tr>
             <td><code>{{ chain.id }}</code></td>
             <td>{{ chain.length() }}</td>
             <td>{{ chain.start_block() }}</td>
             <td>{{ chain.end_block() }}</td>
             <td>{{ chain.duration_blocks() }}</td>
-            <td><pre>{{ chain.tree_repr }}</pre></td>
+            <td><pre>{{ chain }}</pre></td>
         </tr>
+        {% endif %}
         {% endfor %}
     </tbody>
 </table>
+{% if not ns.found %}
+<p><em>All {{ report_data.blackbox_identified_chains | length }} blackbox chains have length 1 (hidden).</em></p>
+{% endif %}
 {% else %}
 <p>No blackbox CoinJoin chains were identified.</p>
 {% endif %}
@@ -324,7 +570,7 @@
             <td>{{ chain.start_block() }}</td>
             <td>{{ chain.end_block() }}</td>
             <td>{{ chain.duration_blocks() }}</td>
-            <td><pre>{{ chain.tree_representation }}</pre></td>
+            <td><pre>{{ chain }}</pre></td>
         </tr>
         {% endfor %}
     </tbody>
@@ -334,13 +580,7 @@
 {% endif %}
 <h3>Chain Comparison Summary</h3>
 {% if report_data.chain_comparison_summary %}
-<div class="stats-boxes">
-    <div class="stat-box"><strong>Total Blackbox Chains:</strong> {{ report_data.chain_comparison_summary.total_blackbox_chains }}</div>
-    <div class="stat-box"><strong>Total Whitebox Chains:</strong> {{ report_data.chain_comparison_summary.total_whitebox_chains }}</div>
-    <div class="stat-box"><strong>Matched Pairs:</strong> {{ report_data.chain_comparison_summary.num_matched_pairs }}</div>
-    <div class="stat-box"><strong>Fully Matched Pairs:</strong> {{ report_data.chain_comparison_summary.num_fully_matched_pairs }}</div>
-    <div class="stat-box"><strong>Partially Matched Pairs:</strong> {{ report_data.chain_comparison_summary.num_partially_matched_pairs }}</div>
-</div>
+
 <h4>Matched Chain Pairs ({{ report_data.chain_comparison_summary.matched_chain_pairs | length }})</h4>
 {% if report_data.chain_comparison_summary.matched_chain_pairs %}
 <table>
@@ -421,3 +661,6 @@
 
 {{ blacbox_iframe | safe }}
 {{ whitebox_iframe | safe }}
+
+<!-- Include Fidelity Bond Report if available -->
+{% include 'fidelity_bond_report_template.html' %}

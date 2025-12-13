@@ -397,7 +397,10 @@ class CoinJoin:
             block_height=block.get('height', 0),
             tx=tx,
             participants=participants,
-            meta={'whitebox_analysis': True}
+            meta={
+                'whitebox_analysis': True,
+                'block_time': block.get('time')
+            }
         )
         # Emit unmapped CJ outputs for quick inspection
         unmapped_cj = [

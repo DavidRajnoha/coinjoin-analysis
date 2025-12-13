@@ -33,6 +33,18 @@ def safe_format_float(value, decimals=8):
         return str(value) if value is not None else "N/A"
 
 
+def format_timestamp(timestamp):
+    """Format Unix timestamp to readable date/time string."""
+    if timestamp is None:
+        return "N/A"
+    try:
+        from datetime import datetime
+        dt = datetime.fromtimestamp(int(timestamp))
+        return dt.strftime('%Y-%m-%d %H:%M:%S')
+    except (ValueError, TypeError, OSError):
+        return str(timestamp)
+
+
 def convert_frozensets(obj):
     if isinstance(obj, dict):
         return {k: convert_frozensets(v) for k, v in obj.items()}
@@ -61,6 +73,7 @@ def render_unified_report_html(report_data: Dict[str, Any], output_dir: str) -> 
         autoescape=select_autoescape()
     )
     env.filters['safe_format_float'] = safe_format_float
+    env.filters['format_timestamp'] = format_timestamp
     template_path = "unified_report_template.html"
     template = env.get_template(template_path)
     html_content = template.render(report_data=report_data, blackbox_iframe="", whitebox_iframe="")
@@ -89,7 +102,8 @@ def generate_unified_report(
     output_dir: str,
     client_roles: Optional[Dict[str, str]] = None,
     fidelity_bond_stats: Optional[Any] = None,
-    run_path: Optional[str] = None
+    run_path: Optional[str] = None,
+    show_block_timestamps: bool = False
 ):
     """
     Generate both HTML and JSON unified CoinJoin reports.
@@ -112,7 +126,8 @@ def generate_unified_report(
         output_dir=output_dir,
         client_roles=client_roles,
         fidelity_bond_stats=fidelity_bond_stats,
-        run_path=run_path
+        run_path=run_path,
+        show_block_timestamps=show_block_timestamps
     )
     render_unified_report_json(report_data, output_dir)
     render_unified_report_html(report_data, output_dir)

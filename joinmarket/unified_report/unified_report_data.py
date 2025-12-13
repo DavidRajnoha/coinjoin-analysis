@@ -62,6 +62,150 @@ def aggregate_blackbox_analysis_stats(blackbox_cj_objs):
         'failure_details': failure_details
     }
 
+
+def compute_solution_count_distribution(blackbox_cj_objs):
+    """
+    Compute the distribution of solution counts across transactions.
+
+    Returns a table showing how many transactions have ≤N solutions for various N values.
+    Example buckets: 1, 2, 4, 10, 100, 1000
+
+    Args:
+        blackbox_cj_objs: List of blackbox CoinJoin objects with num_solutions metadata
+
+    Returns:
+        List of dicts with keys: bucket, count, cumulative_count, cumulative_pct
+    """
+    # Extract solution counts from solved transactions
+    solution_counts = []
+    for cj in blackbox_cj_objs:
+        if cj.meta.get('sudoku_solved', False):
+            num_solutions = cj.meta.get('num_solutions', 0)
+            solution_counts.append(num_solutions)
+
+    if not solution_counts:
+        return []
+
+    # Define bucket boundaries
+    buckets = [1, 2, 4, 10, 100, 1000, 10000]
+
+    total_txs = len(solution_counts)
+    distribution = []
+
+    for bucket in buckets:
+        count = sum(1 for s in solution_counts if s <= bucket)
+        cumulative_pct = (count / total_txs * 100) if total_txs > 0 else 0
+
+        distribution.append({
+            'bucket': bucket,
+            'count': count,
+            'cumulative_pct': round(cumulative_pct, 2)
+        })
+
+    # Add total row
+    distribution.append({
+        'bucket': 'Total',
+        'count': total_txs,
+        'cumulative_pct': 100.0
+    })
+
+    return distribution
+
+
+def compute_metrics_by_solution_count(blackbox_cj_objs, whitebox_cj_objs):
+    """
+    Compute taker matching metrics stratified by solution count.
+
+    Uses the same definition as overall Taker Sensitivity:
+    "% of TXs where exactly 1 taker was correctly matched"
+
+    This shows how sudoku solver performance varies based on the number of solutions:
+    - Transactions with 1 solution (unambiguous)
+    - Transactions with 2-4 solutions (low ambiguity)
+    - Transactions with 5-10 solutions (medium ambiguity)
+    - Transactions with 11-100 solutions (high ambiguity)
+    - Transactions with >100 solutions (very high ambiguity)
+
+    Args:
+        blackbox_cj_objs: List of blackbox CoinJoin objects
+        whitebox_cj_objs: List of whitebox CoinJoin objects (ground truth)
+
+    Returns:
+        List of dicts with keys: bucket, tx_count, taker_match_rate
+    """
+    # Define solution count buckets
+    buckets = [
+        (1, 1, "1 solution"),
+        (2, 4, "2-4 solutions"),
+        (5, 10, "5-10 solutions"),
+        (11, 100, "11-100 solutions"),
+        (101, float('inf'), ">100 solutions")
+    ]
+
+    # Build txid -> num_solutions mapping
+    txid_to_solutions = {}
+    for cj in blackbox_cj_objs:
+        if cj.meta.get('sudoku_solved', False):
+            txid_to_solutions[cj.txid] = cj.meta.get('num_solutions', 0)
+
+    # Build txid maps for quick lookup
+    bb_txid_map = {cj.txid: cj for cj in blackbox_cj_objs}
+    wb_txid_map = {cj.txid: cj for cj in whitebox_cj_objs}
+
+    # Find common transactions
+    common_txids = set(bb_txid_map.keys()) & set(wb_txid_map.keys())
+
+    results = []
+
+    for min_sol, max_sol, label in buckets:
+        # Filter transactions in this bucket
+        bucket_txids = [
+            txid for txid in common_txids
+            if txid in txid_to_solutions and min_sol <= txid_to_solutions[txid] <= max_sol
+        ]
+
+        if not bucket_txids:
+            continue
+
+        # For each transaction, check if exactly 1 taker was correctly matched
+        # This matches the definition of overall "Taker Sensitivity"
+        taker_matched_count = 0
+
+        for txid in bucket_txids:
+            bb_cj = bb_txid_map[txid]
+            wb_cj = wb_txid_map[txid]
+
+            # Get taker input sets from both analyses
+            bb_taker_inputs = set()
+            for participant in bb_cj.participants:
+                if getattr(participant, 'role', None) == 'taker':
+                    for inp in participant.inputs:
+                        # Use (txid, vout) tuple to uniquely identify inputs
+                        bb_taker_inputs.add((getattr(inp, 'txid', None), getattr(inp, 'vout', None)))
+
+            wb_taker_inputs = set()
+            for participant in wb_cj.participants:
+                if getattr(participant, 'role', None) == 'taker':
+                    for inp in participant.inputs:
+                        input_id = (getattr(inp, 'txid', None), getattr(inp, 'vout', None))
+                        wb_taker_inputs.add(input_id)
+
+            # Check if taker was correctly matched (all taker inputs match exactly)
+            if bb_taker_inputs and wb_taker_inputs and bb_taker_inputs == wb_taker_inputs:
+                taker_matched_count += 1
+
+        # Calculate taker match rate (same as taker sensitivity)
+        taker_match_rate = round(taker_matched_count / len(bucket_txids) * 100, 2) if bucket_txids else None
+
+        results.append({
+            'bucket': label,
+            'tx_count': len(bucket_txids),
+            'taker_match_rate': taker_match_rate,
+            'taker_matched_count': taker_matched_count
+        })
+
+    return results
+
 def aggregate_txid_comparison(blackbox_results, whitebox_data):
     return generate_comparison_data(blackbox_results, whitebox_data)
 
@@ -811,7 +955,7 @@ def aggregate_tx_statistics(whitebox_cj_objs, blackbox_cj_objs):
     else:
         return None, None, [], {}
 
-def aggregate_detailed_cj_objects(whitebox_cj_objs, blackbox_cj_objs):
+def aggregate_detailed_cj_objects(whitebox_cj_objs, blackbox_cj_objs, show_block_timestamps=False):
     detailed_cj_objects = []
     def participant_details(participant):
         # Safely compute output totals without assuming cj_output is always present
@@ -880,6 +1024,22 @@ def aggregate_detailed_cj_objects(whitebox_cj_objs, blackbox_cj_objs):
             "analysis_type": analysis_type,
             "participants": [participant_details(p) for p in getattr(cj, "participants", [])]
         }
+        # Add block timestamp if enabled and available in the transaction data
+        if show_block_timestamps:
+            tx_data = getattr(cj, "tx", {})
+            # The block data should be available through the tx_map structure
+            # Try to get the timestamp from the transaction's block reference
+            if isinstance(tx_data, dict):
+                # Check if we have access to block data through the CoinJoin object
+                # The timestamp might be in cj.tx or we need to look at the block
+                block_time = None
+                # Try to extract from metadata first
+                if hasattr(cj, 'meta') and isinstance(cj.meta, dict):
+                    block_time = cj.meta.get('block_time')
+                # If not in meta, try to get from tx structure (if it has block reference)
+                if block_time is None and 'block' in tx_data:
+                    block_time = tx_data.get('block', {}).get('time')
+                details["block_timestamp"] = block_time
         return details
     for cj in whitebox_cj_objs:
         detailed_cj_objects.append(cj_details(cj, "whitebox"))
@@ -937,7 +1097,8 @@ def build_unified_report_data(
     output_dir,
     client_roles=None,
     fidelity_bond_stats=None,
-    run_path=None
+    run_path=None,
+    show_block_timestamps=False
 ):
     """
     Aggregate and process all data for the unified CoinJoin report.
@@ -1008,6 +1169,12 @@ def build_unified_report_data(
     # Add detailed blackbox analysis statistics
     report_data['blackbox_analysis_stats'] = aggregate_blackbox_analysis_stats(blackbox_cj_objs)
 
+    # Compute solution count distribution
+    report_data['solution_count_distribution'] = compute_solution_count_distribution(blackbox_cj_objs)
+
+    # Compute metrics stratified by solution count
+    report_data['metrics_by_solution_count'] = compute_metrics_by_solution_count(blackbox_cj_objs, whitebox_cj_objs)
+
     input_stats, output_stats, all_tx_stats, solve_status_stats = aggregate_tx_statistics(whitebox_cj_objs, blackbox_cj_objs)
     if input_stats and output_stats:
         report_data['tx_statistics'] = {
@@ -1022,7 +1189,8 @@ def build_unified_report_data(
     else:
         report_data['tx_statistics'] = None
         report_data['tx_stats_list'] = []
-    report_data['detailed_cj_objects'] = aggregate_detailed_cj_objects(whitebox_cj_objs, blackbox_cj_objs)
+    report_data['detailed_cj_objects'] = aggregate_detailed_cj_objects(whitebox_cj_objs, blackbox_cj_objs, show_block_timestamps)
+    report_data['show_block_timestamps'] = show_block_timestamps
     # Add object stats for template compatibility
     report_data['blackbox_obj_stats'] = aggregate_coinjoin_object_stats(blackbox_cj_objs)
     report_data['whitebox_obj_stats'] = aggregate_coinjoin_object_stats(whitebox_cj_objs)

@@ -151,7 +151,15 @@ def generate_object_comparison(
     overall_role_succ_avg    = round(sum(t["overall_role_success"] for t in per_tx if t.get("overall_role_success") is not None) / max(tx_cnt, 1), 2)
     taker_success_avg        = round(sum(t["taker_success"]       for t in per_tx if t.get("taker_success") is not None) / max(tx_cnt, 1), 2)
     taker_match_avg         = round(sum(t["taker_match"]         for t in per_tx if t.get("taker_match") is not None) / max(tx_cnt, 1) * 100, 2)
-    utxo_accuracy_avg        = round(sum(t["utxo_accuracy"] for t in per_tx if t.get("utxo_accuracy") is not None) / max(tx_cnt, 1), 2)
+    utxo_accuracy_avg       = round(sum(t["utxo_accuracy"]      for t in per_tx if t.get("utxo_accuracy") is not None) / max(tx_cnt, 1), 2)
+    taker_sensitivity_avg = taker_match_avg
+
+    # Specificity = True Negatives / (True Negatives + False Positives)
+    # True Negatives = total WB makers - false positives
+    # False Positives = sum of taker_false_positive across all transactions
+    total_false_positives = sum(t["taker_false_positive"] for t in per_tx if t.get("taker_false_positive") is not None)
+    total_wb_makers = sum(t["wb_makers_count"] for t in per_tx if t.get("wb_makers_count") is not None)
+    taker_specificity_avg = round((total_wb_makers - total_false_positives) / total_wb_makers * 100, 2) if total_wb_makers > 0 else None
 
     total_bb_parts           = sum(t["participants_bb"]     for t in per_tx if t.get("participants_bb") is not None)
     total_matched_parts      = sum(t["matched_participants"] for t in per_tx if t.get("matched_participants") is not None)
@@ -167,6 +175,8 @@ def generate_object_comparison(
         "total_bb_participants":     total_bb_parts,
         "total_matched_participants": total_matched_parts,
         "taker_match_avg":           taker_match_avg,
+        "taker_sensitivity_avg":     taker_sensitivity_avg,
+        "taker_specificity_avg":     taker_specificity_avg,
         "utxo_accuracy_avg":         utxo_accuracy_avg,
     }
 
@@ -275,7 +285,7 @@ def compare_coinjoin_objects(bb, wb, *, detailed: bool = False) -> Dict[str, Any
     for p in wb.participants:
         wb_idx.setdefault(_participant_signature(p), []).append(p)
 
-    matched = role_matches = taker_matches = 0
+    matched = role_matches = taker_matches = taker_false_positive = 0
     part_details: List[Dict[str, Any]] = []
 
     for b in bb.participants:
@@ -294,6 +304,7 @@ def compare_coinjoin_objects(bb, wb, *, detailed: bool = False) -> Dict[str, Any
             role_ok = any(b.role == w.role and b.role != "unknown" for w in wb_cand)
             role_matches += 1 if role_ok else 0
             taker_matches += 1 if role_ok and wb_cand[0].role == "taker" else 0
+            taker_false_positive += 1 if not role_ok and b.role == "taker" else 0
         else:
             role_ok = False
 
@@ -312,6 +323,9 @@ def compare_coinjoin_objects(bb, wb, *, detailed: bool = False) -> Dict[str, Any
     overall_role_success = round(role_matches / max(len(bb.participants), 1) * 100, 2)
     taker_match          = True if taker_matches == 1 else False
 
+    # Count WB makers for specificity calculation
+    wb_makers_count = sum(1 for p in wb.participants if getattr(p, 'role', None) == 'maker')
+
     result = {
         "txid":                   bb.txid,
         "block_height":           bb.block_height,
@@ -322,6 +336,8 @@ def compare_coinjoin_objects(bb, wb, *, detailed: bool = False) -> Dict[str, Any
         "utxo_accuracy":          utxo_accuracy,
         "overall_role_success":   overall_role_success,
         "taker_match":            taker_match,
+        "taker_false_positive":   taker_false_positive,
+        "wb_makers_count":        wb_makers_count,
         "blackbox_cj_amount":     bb.cj_amount,
         "whitebox_cj_amount":     wb.cj_amount,
         "blackbox_fee":           bb.miner_fee,

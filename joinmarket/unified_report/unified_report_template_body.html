@@ -57,6 +57,29 @@
     </table>
 </details>
 {% endif %}
+
+{% if report_data.solution_count_distribution %}
+<h3>Solution Count Distribution</h3>
+<p>This table shows the cumulative distribution of solution counts across solved transactions. It helps understand the complexity/ambiguity of the coinjoins being analyzed.</p>
+<table>
+    <thead>
+        <tr>
+            <th>Solutions (≤)</th>
+            <th>Transactions</th>
+            <th>Cumulative %</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in report_data.solution_count_distribution %}
+        <tr {% if row.bucket == 'Total' %}style="font-weight: bold; border-top: 2px solid #333;"{% endif %}>
+            <td>{{ row.bucket }}</td>
+            <td>{{ row.count }}</td>
+            <td>{{ "%.2f"|format(row.cumulative_pct) }}%</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endif %}
 {% endif %}
 
 <h3>Whitebox CoinJoin Object Statistics</h3>
@@ -108,6 +131,35 @@
     </div>
 </div>
 
+{% if report_data.metrics_by_solution_count %}
+<h3>Taker Match Rate by Solution Count</h3>
+<p>This table shows how sudoku solver performance varies based on the number of solutions. Lower solution counts indicate less ambiguous coinjoins.</p>
+<table>
+    <thead>
+        <tr>
+            <th>Solution Count Range</th>
+            <th>Transactions</th>
+            <th>Taker Match Rate</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in report_data.metrics_by_solution_count %}
+        <tr>
+            <td>{{ row.bucket }}</td>
+            <td>{{ row.tx_count }}</td>
+            <td {% if row.taker_match_rate is not none %}style="background-color: {% if row.taker_match_rate >= 80 %}#d4edda{% elif row.taker_match_rate >= 50 %}#fff3cd{% else %}#f8d7da{% endif %};"{% endif %}>
+                {% if row.taker_match_rate is not none %}{{ "%.2f"|format(row.taker_match_rate) }}%{% else %}N/A{% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+<details>
+    <summary><strong>Metric Definition</strong></summary>
+    <p><strong>Taker Match Rate:</strong> Percentage of transactions where the blackbox solver correctly identified the taker (all taker inputs match exactly with whitebox ground truth). This uses the same definition as the overall "Taker Sensitivity" metric shown above.</p>
+    <p>This metric helps understand whether the solver performs worse on more ambiguous coinjoins (those with many solutions).</p>
+</details>
+{% endif %}
 
 <h3>Chain Statistics</h3>
 <div class="stats-boxes">
@@ -420,6 +472,9 @@
     <h3>CoinJoin: <code>{{ cj.txid }}</code> ({{ cj.analysis_type }})</h3>
     <div class="stats-boxes">
         <div class="stat-box"><strong>Block Height:</strong> {{ cj.block_height }}</div>
+        {% if report_data.show_block_timestamps and cj.block_timestamp %}
+        <div class="stat-box"><strong>Block Time:</strong> {{ cj.block_timestamp | format_timestamp }}</div>
+        {% endif %}
         <div class="stat-box"><strong>CoinJoin Amount:</strong> {{ cj.cj_amount | safe_format_float }} BTC</div>
         <div class="stat-box"><strong>Miner Fee:</strong> {{ cj.miner_fee | safe_format_float }} BTC</div>
         <div class="stat-box"><strong>Participants:</strong> {{ cj.participants | length }}</div>

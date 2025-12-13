@@ -34,6 +34,7 @@ from joinmarket.blackbox.coinjoin_sudoku.strategies.dfs_pruned import SudokuDFSC
 from joinmarket.blackbox.coinjoin_sudoku.strategies.meet_in_the_middle import _solve_taker_sweep_global
 from joinmarket.blackbox.coinjoin_sudoku.utils.decomposition_helpers import prepare_inputs_outputs, classify_outputs, \
     is_valid_cj_structure, calculate_miner_fee, calculate_target_sum, build_parts, canonical_key
+from joinmarket.blackbox.coinjoin_sudoku.sudoku_statistics import SudokuStatisticsCollector, SudokuSolveStatistics
 
 import os
 
@@ -458,6 +459,7 @@ def solve_sudoku_for_coinjoin_set(
     tx_map: Dict[str, Dict[str, Any]],
     search_strategy: str = "start_high_always_search",
     max_iterations: int = 5,
+    statistics_collector: Optional[SudokuStatisticsCollector] = None,
 ) -> Tuple[List[CoinJoin], List[Dict[str, Any]]]:
     """
     Run Sudoku assignment for all CoinJoin candidates in the set.
@@ -472,6 +474,7 @@ def solve_sudoku_for_coinjoin_set(
             - "start_high_always_search": Start at 600k, search down even if fails (binary search)
             - "aggressive_downscale": Aggressive downscale steps (512k→128k→32k→8k), then binary search
         max_iterations: Maximum iterations for binary search
+        statistics_collector: Optional statistics collector for performance analysis
     """
     coinjoin_results: List[Dict[str, Any]] = []
     coinjoin_objects: List[CoinJoin] = []
@@ -480,8 +483,20 @@ def solve_sudoku_for_coinjoin_set(
         solutions = None
         failure_reason = None
         skipped = False
+        stats = None
 
         try:
+            # Prepare inputs/outputs for statistics tracking
+            inputs, outputs = prepare_inputs_outputs(tx, tx_map)
+            cj_val, cj_outs, ch_outs = classify_outputs(outputs)
+
+            # Start statistics tracking
+            if statistics_collector and statistics_collector.enabled:
+                stats = statistics_collector.start_transaction(txid, tx, cj_outs, ch_outs)
+                if stats:
+                    stats.strategy = "matrix_multiplication"  # Default strategy
+                    stats.search_strategy = search_strategy
+
             if len(tx['vin']) > MAX_INPUTS_SWEEP or len(tx['vout']) > MAX_OUTPUTS_SWEEP:
                 print(f'solve_sudoku_for_coinjoin_set: skipping {txid} (too big)')
                 failure_reason = f"Too large (inputs={len(tx['vin'])}, outputs={len(tx['vout'])}, max={MAX_INPUTS_SWEEP}/{MAX_OUTPUTS_SWEEP})"
@@ -510,6 +525,21 @@ def solve_sudoku_for_coinjoin_set(
             solutions = None
             failure_reason = f"Error: {str(e)}"
             print(f'solve_sudoku_for_coinjoin_set: error solving {txid}: {e}')
+        finally:
+            # Complete statistics tracking
+            if statistics_collector and statistics_collector.enabled and stats:
+                # Extract optimal maker_gain_max from solution metadata if available
+                maker_gain_max = None
+                if solutions and len(solutions) > 0 and len(solutions[0]) > 0:
+                    maker_gain_max = solutions[0][0].get('_optimal_maker_gain_max')
+
+                statistics_collector.complete_transaction(
+                    stats=stats,
+                    solutions=solutions if solutions else [],
+                    maker_gain_max=maker_gain_max,
+                    failure_reason=failure_reason,
+                    skipped=skipped
+                )
 
 
         # —— modal CJ value (works on BTC values in raw tx) ————————
@@ -534,6 +564,7 @@ def solve_sudoku_for_coinjoin_set(
                         'candidate_cj_value': cj_value,  # Decimal (sat)
                         'input_count': len(tx['vin']),
                         'output_count': len(tx['vout']),
+                        'block_time': block.get('time'),
                     },
                 )
             )
@@ -553,6 +584,7 @@ def solve_sudoku_for_coinjoin_set(
                         'skipped': skipped,
                         'input_count': len(tx['vin']),
                         'output_count': len(tx['vout']),
+                        'block_time': block.get('time'),
                     },
                 )
             )

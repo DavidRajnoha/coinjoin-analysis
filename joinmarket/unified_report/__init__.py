@@ -19,6 +19,7 @@ if project_root not in sys.path:
 from joinmarket.common.coinjoin_model import CoinJoin, generate_coinjoin_flow_vis_graph
 from joinmarket.blackbox.parse_blockchain import detect_coinjoin_txs
 from joinmarket.blackbox.coinjoin_sudoku.joinmarket_sudoku import solve_sudoku_for_coinjoin_set
+from joinmarket.blackbox.coinjoin_sudoku.sudoku_statistics import SudokuStatisticsCollector
 from joinmarket.blackbox.load_blockchain import load_blocks
 from joinmarket.whitebox.attribute import analyze_coinjoins
 from joinmarket.whitebox.load_scenario import load_client_roles_from_file, parse_client_fidelity_bonds_from_scenario
@@ -47,20 +48,21 @@ def load_blockchain_data(data_dir: str) -> Tuple[Dict[str, Any], Dict[str, Any]]
     return block_map, tx_map
 
 
-def run_blackbox_analysis(tx_map: Dict[str, Any]) -> Tuple[List[Tuple[str, Dict, Dict]], List[Dict[str, Any]], List[CoinJoin]]:
+def run_blackbox_analysis(tx_map: Dict[str, Any], statistics_collector: SudokuStatisticsCollector = None) -> Tuple[List[Tuple[str, Dict, Dict]], List[Dict[str, Any]], List[CoinJoin]]:
     """
     Run blackbox analysis on the transaction data.
-    
+
     Args:
         tx_map: Map of transaction IDs to transaction data
-        
+        statistics_collector: Optional statistics collector for performance analysis
+
     Returns:
         Tuple containing detected CoinJoins, analysis results, and CoinJoin objects
     """
     print("Running blackbox CoinJoin detection...")
     blackbox_coinjoins = detect_coinjoin_txs(tx_map)
     print(f"Found {len(blackbox_coinjoins)} potential CoinJoins using blackbox analysis")
-    
+
     print("Solving CoinJoin sudoku (blackbox attribution)...")
     # Configure search strategy here:
     # "start_middle" - Start at 50k, search up/down (ORIGINAL, achieved 85% taker match)
@@ -69,14 +71,19 @@ def run_blackbox_analysis(tx_map: Dict[str, Any]) -> Tuple[List[Tuple[str, Dict,
     SEARCH_STRATEGY = "aggressive_downscale"  # <-- CHANGE THIS TO TEST DIFFERENT STRATEGIES
     MAX_ITERATIONS = 5
     print(f"Using search strategy: {SEARCH_STRATEGY}, max_iterations: {MAX_ITERATIONS}")
+
+    if statistics_collector and statistics_collector.enabled:
+        print("Statistics collection is ENABLED")
+
     blackbox_cj_objs, blackbox_results = solve_sudoku_for_coinjoin_set(
         blackbox_coinjoins, tx_map,
         search_strategy=SEARCH_STRATEGY,
-        max_iterations=MAX_ITERATIONS
+        max_iterations=MAX_ITERATIONS,
+        statistics_collector=statistics_collector
     )
     print(f"Analyzed {len(blackbox_results)} CoinJoin transactions with blackbox approach")
     print(f"Created {len(blackbox_cj_objs)} CoinJoin objects from blackbox analysis")
-    
+
     return blackbox_coinjoins, blackbox_results, blackbox_cj_objs
 
 
@@ -265,6 +272,10 @@ def main():
                         choices=["both", "blackbox", "whitebox"],
                         default="both",
                         help="Which analysis to run: both (default), blackbox only, or whitebox only")
+    parser.add_argument("--whitebox", action="store_true",
+                        help="Enable whitebox-specific features in report (e.g., display block timestamps)")
+    parser.add_argument("--collect-stats", action="store_true",
+                        help="Collect performance statistics during sudoku solving")
     args = parser.parse_args()
     
     # Create output directory
@@ -273,8 +284,14 @@ def main():
     else:
         output_dir = os.path.join(args.data_dir, "report_unified")
     os.makedirs(output_dir, exist_ok=True)
-    
+
     print(f"Analyzing CoinJoins in {args.data_dir}")
+
+    # Initialize statistics collector if requested
+    stats_collector = None
+    if args.collect_stats:
+        print("Initializing performance statistics collector...")
+        stats_collector = SudokuStatisticsCollector(enabled=True)
     
     # Load caches independently to avoid redoing long-running steps unnecessarily
     blackbox_results = whitebox_data = blackbox_cj_objs = whitebox_cj_objs = None
@@ -308,7 +325,7 @@ def main():
     if need_run_bb:
         print("Running blackbox (sudoku) analysis...")
         def _run_bb():
-            _, res, objs = run_blackbox_analysis(tx_map)
+            _, res, objs = run_blackbox_analysis(tx_map, statistics_collector=stats_collector)
             return res, objs
         blackbox_results, blackbox_cj_objs = run_and_cache(
             _run_bb, output_dir, "blackbox_results.pkl", "blackbox_cj_objs.pkl", label="blackbox"
@@ -399,8 +416,19 @@ def main():
         output_dir=output_dir,
         client_roles=client_roles,
         fidelity_bond_stats=fidelity_bond_stats,
-        run_path=args.data_dir
+        run_path=args.data_dir,
+        show_block_timestamps=args.whitebox
     )
+
+    # Export statistics if collected
+    if stats_collector and stats_collector.enabled:
+        print("\nExporting performance statistics...")
+        stats_collector.print_summary()
+        stats_collector.export_csv(os.path.join(output_dir, "sudoku_performance_stats.csv"))
+        stats_collector.export_json(os.path.join(output_dir, "sudoku_performance_stats.json"))
+        print(f"Statistics exported to:")
+        print(f"  - {os.path.join(output_dir, 'sudoku_performance_stats.csv')}")
+        print(f"  - {os.path.join(output_dir, 'sudoku_performance_stats.json')}")
 
     # Summary message
     analysis_type = args.analysis if args.analysis != "both" else "blackbox and whitebox"
@@ -413,6 +441,10 @@ def main():
         print(f"  - Whitebox CoinJoins analyzed: {len(whitebox_cj_objs)}")
     if fidelity_bond_stats:
         print(f"  - Fidelity bond participation: {fidelity_bond_stats.fb_participation_rate:.1f}%")
+    if stats_collector and stats_collector.enabled:
+        stats = stats_collector.get_statistics()
+        successful = sum(1 for s in stats if s.success)
+        print(f"  - Sudoku statistics: {len(stats)} transactions, {successful} successful ({100*successful/len(stats):.1f}%)")
     print(f"{'='*60}")
 
 

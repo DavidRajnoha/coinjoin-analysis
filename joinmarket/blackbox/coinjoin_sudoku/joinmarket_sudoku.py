@@ -30,10 +30,8 @@ import numpy as np
 
 from joinmarket.blackbox.coinjoin_sudoku.strategies.dfs_matrix_sudoku import MatrixSudokuDFSContext
 from joinmarket.blackbox.coinjoin_sudoku.utils.build_participants import _build_participants
-from joinmarket.blackbox.coinjoin_sudoku.strategies.dfs_pruned import SudokuDFSContext
-from joinmarket.blackbox.coinjoin_sudoku.strategies.meet_in_the_middle import _solve_taker_sweep_global
 from joinmarket.blackbox.coinjoin_sudoku.utils.decomposition_helpers import prepare_inputs_outputs, classify_outputs, \
-    is_valid_cj_structure, calculate_miner_fee, calculate_target_sum, build_parts, canonical_key
+    is_valid_cj_structure, calculate_miner_fee
 from joinmarket.blackbox.coinjoin_sudoku.sudoku_statistics import SudokuStatisticsCollector, SudokuSolveStatistics
 
 import os
@@ -88,29 +86,10 @@ def analyze_and_solve_sudoku_for_tx(
         return []
     N = len(cj_outs)
     miner_fee = calculate_miner_fee(inputs, outputs)
-    target_sum = calculate_target_sum(miner_fee)
 
     return sudoku_matrix_multiplication(
         inputs, cj_outs, ch_outs, N, miner_fee, maker_gain_max, fee_tol
     )
-
-    # Check input/output limits
-    if len(ch_outs) != N:
-        if len(inputs) < MAX_INPUTS_NON_SWEEP and len(outputs) < MAX_OUTPUTS_NON_SWEEP:
-            return sudoku_dfs_assignment(
-                inputs, cj_outs, ch_outs, N, miner_fee, maker_gain_max, fee_tol, target_sum
-            )
-        elif len(inputs) > MAX_INPUTS_SWEEP or len(outputs) > MAX_OUTPUTS_SWEEP:
-            return []
-        return sudoku_taker_sweep(
-            inputs, cj_outs, ch_outs, cj_val, miner_fee, maker_gain_max, fee_tol
-        )
-    else:
-        if len(inputs) > MAX_INPUTS_NON_SWEEP or len(outputs) > MAX_OUTPUTS_NON_SWEEP:
-            return []
-        return sudoku_dfs_assignment(
-            inputs, cj_outs, ch_outs, N, miner_fee, maker_gain_max, fee_tol, target_sum
-        )
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Binary search wrapper for optimal maker_gain_max
@@ -596,40 +575,8 @@ def solve_sudoku_for_coinjoin_set(
     return coinjoin_objects, coinjoin_results
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Sudoku taker sweep solver
-# ─────────────────────────────────────────────────────────────────────────────
-
-def sudoku_taker_sweep(
-    inputs, cj_outs, ch_outs, cj_val, miner_fee, maker_gain_max, fee_tol
-) -> List[List[Dict[str, Any]]]:
-    """
-    Handles the taker sweep case (no change for taker) via the global optimization path.
-    """
-    sweep_solution = _solve_taker_sweep_global(
-        inputs, cj_outs, ch_outs, cj_val, miner_fee, maker_gain_max, fee_tol
-    )
-    return sweep_solution if sweep_solution else []
-
-# ─────────────────────────────────────────────────────────────────────────────
 # Sudoku DFS assignment solver
 # ─────────────────────────────────────────────────────────────────────────────
-
-def sudoku_dfs_assignment(
-    inputs, cj_outs, ch_outs, N, miner_fee, maker_gain_max, fee_tol, target_sum
-) -> List[List[Dict[str, Any]]]:
-    """
-    Handles the non-sweep (taker has change) case via DFS/backtracking.
-    """
-    taker_cj = cj_outs[0]
-    maker_cj_outs = cj_outs[1:]
-    taker_change_candidates = ch_outs if len(ch_outs) == N else [None]
-    results = []
-    for t_ch in taker_change_candidates:
-        maker_changes = sorted([c for c in ch_outs if c != t_ch], key=lambda o: o['n'])
-        parts = build_parts(maker_cj_outs, maker_changes, taker_cj, t_ch)
-        ctx = SudokuDFSContext(parts, inputs, N, miner_fee, maker_gain_max, fee_tol, target_sum, canonical_key)
-        results.extend(ctx.run())
-    return results
 
 
 def generate_subset_indicators(num_inputs, cache_dir="subset_cache"):
@@ -723,14 +670,6 @@ def build_compatibility_matrix(valid_indices,
         }
 
     return compatibility, compatibility_taker
-
-
-def subsets_overlap(subset_idx_a, subset_idx_b):
-    """
-    Check if two subsets (represented by their binary indices) overlap.
-    Returns True if they share any common inputs.
-    """
-    return (subset_idx_a & subset_idx_b) != 0
 
 
 def find_valid_assignments(compatibility, compatibility_taker, ch_outs, cj_outs, maker_gain_max, fee_tol, miner_fee):

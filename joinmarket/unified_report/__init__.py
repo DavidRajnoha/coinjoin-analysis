@@ -154,59 +154,6 @@ def generate_visualizations(blackbox_cj_objs, whitebox_cj_objs, client_roles, ou
             print(f"Error generating whitebox visualization: {e}")
 
 
-def save_results_to_csv(blackbox_results, whitebox_data, output_dir):
-    """
-    Save analysis results to CSV files.
-    
-    Args:
-        blackbox_results: Results from blackbox analysis
-        whitebox_data: Results from whitebox analysis
-        output_dir: Directory to save CSV files
-    """
-    # Create summary DataFrames
-    blackbox_df = pd.DataFrame(blackbox_results) if blackbox_results else pd.DataFrame()
-    whitebox_df = pd.DataFrame(whitebox_data) if whitebox_data else pd.DataFrame()
-    
-    # Save to CSV for reference
-    if not blackbox_df.empty:
-        blackbox_df.to_csv(os.path.join(output_dir, "blackbox_results.csv"), index=False)
-    if not whitebox_df.empty:
-        whitebox_df.to_csv(os.path.join(output_dir, "whitebox_results.csv"), index=False)
-
-
-def save_analysis_cache(blackbox_results, whitebox_data, blackbox_cj_objs, whitebox_cj_objs, output_dir):
-    """
-    Save all intermediate analysis results (including CoinJoin objects) to pickle files.
-    """
-    with open(os.path.join(output_dir, "blackbox_results.pkl"), "wb") as f:
-        pickle.dump(blackbox_results, f)
-    with open(os.path.join(output_dir, "whitebox_data.pkl"), "wb") as f:
-        pickle.dump(whitebox_data, f)
-    with open(os.path.join(output_dir, "blackbox_cj_objs.pkl"), "wb") as f:
-        pickle.dump(blackbox_cj_objs, f)
-    with open(os.path.join(output_dir, "whitebox_cj_objs.pkl"), "wb") as f:
-        pickle.dump(whitebox_cj_objs, f)
-
-
-def load_analysis_cache(output_dir):
-    """
-    Load all intermediate analysis results (including CoinJoin objects) from pickle files if present.
-    Returns (blackbox_results, whitebox_data, blackbox_cj_objs, whitebox_cj_objs), or (None, ...)
-    """
-    try:
-        with open(os.path.join(output_dir, "blackbox_results.pkl"), "rb") as f:
-            blackbox_results = pickle.load(f)
-        with open(os.path.join(output_dir, "whitebox_data.pkl"), "rb") as f:
-            whitebox_data = pickle.load(f)
-        with open(os.path.join(output_dir, "blackbox_cj_objs.pkl"), "rb") as f:
-            blackbox_cj_objs = pickle.load(f)
-        with open(os.path.join(output_dir, "whitebox_cj_objs.pkl"), "rb") as f:
-            whitebox_cj_objs = pickle.load(f)
-        return blackbox_results, whitebox_data, blackbox_cj_objs, whitebox_cj_objs
-    except Exception:
-        return None, None, None, None
-
-
 """Generic, parametrized helpers to keep main() concise"""
 
 def load_cache_pair(output_dir: str, results_file: str, objs_file: str, label: str):
@@ -237,34 +184,6 @@ def run_and_cache(run_callable, output_dir: str, results_file: str, objs_file: s
     results, objs = run_callable()
     save_cache_pair(output_dir, results_file, objs_file, results, objs, label)
     return results, objs
-
-
-def run_analysis(data_dir: str) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]], List[CoinJoin], List[CoinJoin]]:
-    """
-    Run both blackbox and whitebox analysis on the same dataset.
-    
-    Args:
-        data_dir: Path to the data directory
-        
-    Returns:
-        Tuple containing:
-        - blackbox_results: Results from blackbox analysis
-        - whitebox_data: Results from whitebox analysis
-        - whitebox_cj_objs: CoinJoin objects from whitebox analysis
-        - blackbox_cj_objs: CoinJoin objects from blackbox analysis
-    """
-    # Load blockchain data
-    block_map, tx_map = load_blockchain_data(data_dir)
-
-    print("Running CoinJoin blackbox analysis...")
-    # Run blackbox analysis
-    blackbox_coinjoins, blackbox_results, blackbox_cj_objs = run_blackbox_analysis(tx_map)
-
-    print("Running CoinJoin whitebox analysis...")
-    # Run whitebox analysis
-    whitebox_data, whitebox_edges, whitebox_cj_objs = run_whitebox_analysis(tx_map, data_dir)
-    
-    return blackbox_results, whitebox_data, whitebox_cj_objs, blackbox_cj_objs
 
 
 def main():

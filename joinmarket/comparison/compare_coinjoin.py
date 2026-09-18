@@ -11,7 +11,6 @@ Functions
 ---------
 - ``generate_comparison_data``     – high‑level, TXID‑centric comparison.
 - ``generate_object_comparison``   – deep comparison using ``CoinJoin`` objects.
-- ``generate_coinjoin_breakdown``  – rich per‑transaction breakdown helper.
 - ``compare_coinjoin_chains``      – chain-level comparison.
 
 Every function returns plain ``dict`` / ``list`` structures so that callers can
@@ -25,7 +24,6 @@ from typing import Any, Dict, List, Set, Tuple
 __all__ = [
     "generate_comparison_data",
     "generate_object_comparison",
-    "generate_coinjoin_breakdown",
     "compare_coinjoin_chains",
 ]
 
@@ -350,7 +348,6 @@ def compare_coinjoin_objects(bb, wb, *, detailed: bool = False) -> Dict[str, Any
     return result
 
 
-
 # ---------------------------------------------------------------------------
 #  Chain-level comparison
 # ---------------------------------------------------------------------------
@@ -455,52 +452,3 @@ def compare_coinjoin_chains(
 #  Breakdown helper
 # ---------------------------------------------------------------------------
 
-def generate_coinjoin_breakdown(
-    cj_objs:       List[Any],
-    analysis_type: str = "blackbox",
-) -> List[Dict[str, Any]]:
-    """Return a rich, serialisable structure for each *CoinJoin* object."""
-    if not cj_objs:
-        return []
-
-    breakdowns: List[Dict[str, Any]] = []
-    for cj in cj_objs:
-        cj_info: Dict[str, Any] = {
-            "txid":             cj.txid,
-            "block_height":     cj.block_height,
-            "participant_count": len(cj.participants),
-            "cj_amount":        cj.cj_amount,
-            "miner_fee":        cj.miner_fee,
-            "participants":     [],
-        }
-
-        for p in cj.participants:
-            entry: Dict[str, Any] = {
-                "role":         p.role,
-                "client":       p.client,
-                "inputs":       [{
-                    "txid":    i.txid,
-                    "vout":    i.vout,
-                    "value":   i.value,
-                    "address": i.address,
-                } for i in p.inputs],
-                "cj_output":    {
-                    "n":       p.cj_output.n,
-                    "value":   p.cj_output.value,
-                    "address": p.cj_output.address,
-                },
-                "change_output": None,
-                "delta":        p.delta,
-            }
-            if p.change_output:
-                entry["change_output"] = {
-                    "n":       p.change_output.n,
-                    "value":   p.change_output.value,
-                    "address": p.change_output.address,
-                }
-            cj_info["participants"].append(entry)
-
-        breakdowns.append(cj_info)
-
-    breakdowns.sort(key=lambda x: x["block_height"])
-    return breakdowns

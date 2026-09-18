@@ -2,7 +2,6 @@ from typing import Optional, Any, Dict, List, Tuple
 
 from joinmarket.common.analysis_config import AnalysisConfig, DEFAULT_CONFIG
 from joinmarket.common.coinjoin_model import TxOutput
-from joinmarket.common.output_attribution import OutputAttribution
 
 
 class ChainBasedAttributor:
@@ -165,5 +164,3 @@ class ChainBasedAttributor:
         node = chain._nodes_by_txid.get(txid)
         return node.get_coinjoin() if node else None
 
-    def _get_maker_coinjoin(self):
-        return self.cj_objects

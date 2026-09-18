@@ -180,10 +180,3 @@ def load_json(path: str):
         return None
 
 
-def extract_address(spk: Dict) -> str | None:  # noqa: D401
-    """Return a single address string or *None* for exotic scripts."""
-    if "address" in spk and spk["address"]:
-        return spk["address"]
-    if "addresses" in spk and spk["addresses"]:
-        return spk["addresses"][0]
-    return None

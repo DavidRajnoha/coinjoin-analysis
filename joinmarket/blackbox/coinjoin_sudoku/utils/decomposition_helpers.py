@@ -55,26 +55,4 @@ def is_valid_cj_structure(cj_outs, ch_outs):
 def calculate_miner_fee(inputs, outputs):
     return sum(i['value'] for i in inputs) - sum(o['value'] for o in outputs)
 
-def calculate_target_sum(miner_fee):
-    return -miner_fee
 
-def build_parts(maker_cj_outs, maker_changes, taker_cj, taker_change):
-    parts = (
-        [{'role': 'maker', 'cj': cj, 'change': ch} for cj, ch in zip(maker_cj_outs, maker_changes)]
-        + [{'role': 'taker', 'cj': taker_cj, 'change': taker_change}]
-    )
-    # Sort by output value + change value (descending)
-    parts.sort(key=lambda p: p['cj']['value'] + (p['change']['value'] if p['change'] else Decimal(0)), reverse=True)
-    return parts
-
-def canonical_key(part_list):
-    makers = []
-    for p in part_list:
-        inp_key = tuple(sorted(f"{i['vin']['txid']}:{i['vin']['vout']}" for i in p.get('inputs', [])))
-        ch_idx = p['change']['n'] if p['change'] else -1
-        if p['role'] == 'maker':
-            makers.append((inp_key, ch_idx))
-        else:
-            taker = (inp_key, ch_idx)
-    makers.sort()
-    return taker, tuple(makers)

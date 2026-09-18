@@ -529,9 +529,6 @@ class CoinJoinGraphBuilder:
         print(f"Saved visualization to {filepath}")
 
     # For backward compatibility
-    def to_pyvis(self, height="750px", width="100%", physics=False):
-        """Backward compatibility method that calls generate_vis_network"""
-        return self.generate_vis_network(height=height, width=width)
 
     def get_address(self, obj):
         """
@@ -569,90 +566,11 @@ class CoinJoinGraphBuilder:
         }
         return attrs
         
-    def get_addr_attrs(self, addr, cj=None):
-        """Get node attributes for an address."""
-        # Check if this is a client address
-        client = self.client_addr_map.get(addr)
-        
-        if client:
-            # This is a client address
-            role = "unknown"
-            if client in self.client_roles:
-                role = self.client_roles[client]
-                
-            color = "#00AA00"  # Default green for makers
-            if role == "taker":
-                color = "#FF0000"  # Red for takers
-                
-            attrs = {
-                'label': f"{addr[:8]}...\n({client})",
-                'title': f"Address: {addr}\nClient: {client}\nRole: {role}",
-                'color': color,
-                'size': 15,
-                'borderWidth': 1
-            }
-        else:
-            # External address
-            attrs = {
-                'label': addr[:8] + "...",
-                'title': f"Address: {addr}",
-                'color': '#AAAAAA',
-                'size': 10,
-                'borderWidth': 1
-            }
-            
-        return attrs
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 #  Private helpers
 # ─────────────────────────────────────────────────────────────────────────────
-
-def _edges_from_registry(reg: TxOutputRegistry, show_change: bool = True) -> Tuple[List[Edge], Set[str]]:
-    edges: List[Edge] = []
-    extra: Set[str]   = set()
-
-    for out in reg.all().values():
-        # Skip change outputs if show_change is False
-        if not show_change and "change" in out.tags:
-            continue
-            
-        if out.spender:                # goes into another CJ
-            dst, dst_t = out.spender[0], "CoinJoin"
-        else:
-            dst, dst_t = (out.address or f"{out.txid}:{out.n}", "address")
-
-        extra.add(dst)
-        edges.append(
-            Edge(src=out.txid, dst=dst, src_type="address", dst_type=dst_t, value=out.value,
-                 role=out.role, out_n=out.n)
-        )
-    return edges, extra
-
-
-def _label_edges(
-    edges: List[Edge],
-    reg:   TxOutputRegistry,
-    tx_map: Dict[str, dict],
-) -> None:
-    """Fill Edge.label; always include the client id when it exists."""
-    have_attr = any(o.role in {"maker", "taker"} for o in reg.all().values())
-
-    for e in edges:
-        out       = reg[(e.src, e.out_n)]
-        client_s  = f"\n{out.client}" if out.client else ""
-        is_change = (out.role != "cj_out") or "change" in out.tags
-
-        if e.dst_type == "CoinJoin":
-            if is_change or not have_attr:
-                e.label = f"{out.value:.8f}\n{out.role}{client_s}"
-            else:
-                base    = _label_by_input(e.src, e.out_n, e.dst, reg, tx_map)
-                e.label = f"{base}{client_s}"
-        else:
-            base = f"{out.value:.8f}\n{out.role}" if is_change else "unattributable"
-            e.label = f"{base}{client_s}"
-
 
 
 def _label_by_input(

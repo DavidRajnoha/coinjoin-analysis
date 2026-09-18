@@ -304,27 +304,3 @@ class SudokuStatisticsCollector:
             print(f"  Avg DFS prunes: {avg_prunes:.0f}")
 
         print("="*80 + "\n")
-
-
-# Global instance for optional use
-_global_collector: Optional[SudokuStatisticsCollector] = None
-
-
-def get_global_collector() -> Optional[SudokuStatisticsCollector]:
-    """Get the global statistics collector instance."""
-    return _global_collector
-
-
-def initialize_global_collector(enabled: bool = True) -> SudokuStatisticsCollector:
-    """
-    Initialize and return the global statistics collector.
-
-    Args:
-        enabled: Whether to enable statistics collection
-
-    Returns:
-        The global collector instance
-    """
-    global _global_collector
-    _global_collector = SudokuStatisticsCollector(enabled=enabled)
-    return _global_collector

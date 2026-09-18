@@ -39,8 +39,6 @@ class MatrixSudokuDFSContext:
 
     def run(self):
         """Main entry point - mirrors your original algorithm's interface."""
-        # if len(self.viable_subsets) < len(self.change_outputs):
-        #     return []
         start = time.time()
 
         subset_sizes = [len(self.viable_subsets_by_change[change_idx]) for change_idx in range(len(self.change_outputs))]
@@ -65,8 +63,7 @@ class MatrixSudokuDFSContext:
             print(f"Solving sweep (no taker) assignment with {subset_sizes} subsets per change")
             self._search_assignments({}, set(), [],
                                      list(range(len(self.change_outputs))),
-                                     False,
-                                 not self.sweep_tx)
+                                     False)
 
         else:
             print(f"Solving for taker change assignment with {subset_size_takers} subsets per taker change"
@@ -141,106 +138,17 @@ class MatrixSudokuDFSContext:
 
         return True
 
-    # def _would_prevent_valid_solution(self, remaining_changes, taker_assigned,
-    #                                   would_assign_taker, current_assignment,
-    #                                   used_compositions, current_subset_info):
-    #     """
-    #     Lookahead pruning: check if making this assignment would prevent
-    #     finding a valid complete solution.
-    #
-    #     Key insights:
-    #     1. If we haven't assigned a taker and this isn't a taker, ensure
-    #        remaining assignments can still produce a taker
-    #     2. If this is a taker, ensure remaining assignments can all be makers
-    #     """
-    #     new_taker_assigned = taker_assigned or would_assign_taker
-    #     remaining_count = len(remaining_changes) - 1  # -1 because we're about to assign one
-    #
-    #     if remaining_count == 0:
-    #         # This is the last assignment, no lookahead needed
-    #         return False
-    #
-    #     # Simulate the current assignment for lookahead analysis
-    #     temp_used_compositions = used_compositions + [current_subset_info['input_composition']]
-    #     temp_assignment = current_assignment.copy()
-    #     temp_assignment[list(current_subset_info.keys())[0]] = remaining_changes[0]  # Temporary assignment
-    #
-    #     # Check each remaining change output
-    #     for i, future_change in enumerate(remaining_changes[1:], 1):
-    #         can_assign_any = False
-    #         can_assign_taker = False
-    #         can_assign_maker = False
-    #
-    #
-    #         # Look for viable assignments for this future change output
-    #         for check_subset_idx, check_subset_info in self.viable_subsets_by_change[future_change].items():
-    #             if (check_subset_idx in temp_assignment):
-    #                 continue
-    #
-    #             # Check overlap constraints
-    #             check_composition = check_subset_info['input_composition']
-    #             if any(self._subsets_overlap(check_composition, used_comp)
-    #                    for used_comp in temp_used_compositions):
-    #                 continue
-    #
-    #             # Calculate what role this assignment would have
-    #             delta = self._calculate_delta(check_subset_info, future_change)
-    #             role = self._determine_role(delta)
-    #
-    #             if role == 'invalid':
-    #                 continue
-    #
-    #             can_assign_any = True
-    #
-    #             if role == 'taker':
-    #                 can_assign_taker = True
-    #             elif role == 'maker':
-    #                 can_assign_maker = True
-    #
-    #         # If we can't assign anything to this future change, this branch is doomed
-    #         if not can_assign_any:
-    #             return True
-    #
-    #         # Role-based pruning logic
-    #         if not new_taker_assigned:
-    #             # We still need to assign a taker somewhere
-    #             if i == remaining_count - 1:  # This is the last future change
-    #                 # The last assignment MUST be able to be a taker
-    #                 if not can_assign_taker:
-    #                     return True
-    #             else:
-    #                 # For non-final future changes, we need either:
-    #                 # 1. This change can be a taker, OR
-    #                 # 2. This change can be a maker AND later changes can be takers
-    #                 if not (can_assign_taker or can_assign_maker):
-    #                     return True
-    #         else:
-    #             # We already have a taker, all remaining must be makers
-    #             if not can_assign_maker:
-    #                 return True
-    #
-    #     return False
-
-
 
     def _search_assignments(self, current_assignment, used_changes,
-                            used_compositions, remaining_changes, taker_assigned, looking_for_taker):
+                            used_compositions, remaining_changes, taker_assigned):
         """Recursive search with pruning - similar structure to your original DFS."""
 
         # Base case
-        # if len(remaining_changes) == 0 and looking_for_taker and not taker_assigned:
-        #     return
 
         if len(remaining_changes) == 0:
             self.results.append(current_assignment.copy())
             return
 
-
-        # Pruning logic (similar to your original implementation)
-        # if not taker_assigned and len(remaining_changes) == 1:
-        #     # Last assignment must be a taker
-        #     self._try_final_taker_assignment(current_assignment, used_compositions, remaining_changes[0])
-        #     return
 
         # Try assignments for next change output
         next_change = remaining_changes[0]
@@ -258,12 +166,6 @@ class MatrixSudokuDFSContext:
                     self.prune_count += 1
                     continue
 
-                # Lookahead pruning for taker constraint
-                # if self._would_prevent_valid_solution(remaining_changes, taker_assigned,
-                #                                       role == 'taker', current_assignment,
-                #                                       used_compositions, subset_info):
-                #     self.prune_count += 1
-                #     continue
 
                 # Make assignment and recurse
                 current_assignment[subset_idx] = next_change
@@ -273,7 +175,6 @@ class MatrixSudokuDFSContext:
                     used_compositions + [subset_info['input_composition']],
                     remaining_changes[1:],
                     taker_assigned or role == 'taker',
-                    looking_for_taker
                 )
                 del current_assignment[subset_idx]
 
@@ -311,6 +212,5 @@ class MatrixSudokuDFSContext:
                         used_changes | {taker_change},
                         used_compositions + [subset_info['input_composition']],
                         remaining_changes[:change_idx] + remaining_changes[change_idx + 1:],
-                        True,
-                    True)
+                        True)
                     del current_assignment[subset_idx]

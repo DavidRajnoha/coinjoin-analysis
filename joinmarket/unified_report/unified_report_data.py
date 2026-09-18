@@ -615,8 +615,6 @@ def compute_chain_root_mapping_consistency(
 def compute_taker_cj_output_attribution_metrics(
     blackbox_cj_objs: List[Any],
     whitebox_cj_objs: List[Any],
-    blackbox_chains: List[Any],
-    whitebox_chains: List[Any],
 ) -> Dict[str, Any]:
     """Compute metrics for taker CoinJoin output attribution after chain attribution.
 
@@ -1129,8 +1127,6 @@ def build_unified_report_data(
     whitebox_data,
     blackbox_cj_objs,
     whitebox_cj_objs,
-    output_dir,
-    client_roles=None,
     fidelity_bond_stats=None,
     run_path=None,
     show_block_timestamps=False,
@@ -1145,8 +1141,6 @@ def build_unified_report_data(
         whitebox_data: Results from whitebox analysis
         blackbox_cj_objs: CoinJoin objects from blackbox analysis
         whitebox_cj_objs: CoinJoin objects from whitebox analysis
-        output_dir: Output directory for the report
-        client_roles: Optional mapping of client_id to role
         fidelity_bond_stats: Optional FidelityBondStats object for JoinMarket FB analysis
         run_path: Optional path to the run directory (for identifying sole takers)
     """
@@ -1183,8 +1177,6 @@ def build_unified_report_data(
     taker_attribution_metrics = compute_taker_cj_output_attribution_metrics(
         blackbox_cj_objs=blackbox_cj_objs,
         whitebox_cj_objs=whitebox_cj_objs,
-        blackbox_chains=blackbox_identified_chains,
-        whitebox_chains=whitebox_identified_chains,
     )
     chain_comparison_summary.update(taker_attribution_metrics)
 

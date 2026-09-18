@@ -101,7 +101,6 @@ def generate_unified_report(
     blackbox_cj_objs: List[Any],
     whitebox_cj_objs: List[Any],
     output_dir: str,
-    client_roles: Optional[Dict[str, str]] = None,
     fidelity_bond_stats: Optional[Any] = None,
     run_path: Optional[str] = None,
     show_block_timestamps: bool = False,
@@ -116,7 +115,6 @@ def generate_unified_report(
         blackbox_cj_objs: CoinJoin objects from blackbox analysis
         whitebox_cj_objs: CoinJoin objects from whitebox analysis
         output_dir: Output directory for the reports
-        client_roles: Optional mapping of client_id to role
         fidelity_bond_stats: Optional FidelityBondStats object for JoinMarket
         run_path: Optional path to the run directory (for identifying sole takers)
     """
@@ -125,8 +123,6 @@ def generate_unified_report(
         whitebox_data=whitebox_data,
         blackbox_cj_objs=blackbox_cj_objs,
         whitebox_cj_objs=whitebox_cj_objs,
-        output_dir=output_dir,
-        client_roles=client_roles,
         fidelity_bond_stats=fidelity_bond_stats,
         run_path=run_path,
         show_block_timestamps=show_block_timestamps,

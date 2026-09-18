@@ -5,14 +5,12 @@ import numpy as np
 
 class MatrixSudokuDFSContext:
     def __init__(self, compatibility, change_outputs, cj_outs, maker_gain_max,
-                 fee_tol, miner_fee, subset_indicators, compatibility_taker):
-        self.compatibility = compatibility
+                 fee_tol, miner_fee, compatibility_taker):
         self.change_outputs = change_outputs
         self.cj_value = max(int(o['value']) for o in cj_outs)
         self.maker_gain_max = maker_gain_max
         self.fee_tol = fee_tol
         self.miner_fee = miner_fee
-        self.subset_indicators = subset_indicators
         self.sweep_tx = len(change_outputs) != len(cj_outs)
 
         # Pre-compute constraints (borrowed from your original implementation)

@@ -768,7 +768,7 @@ def _add_remaining_singleton_chains(chains, sorted_cjs, cjs_in_a_chain, analysis
             chains.append(tree)
 
 
-def rebuild_chains_with_new_connections(coinjoins, old_chains, new_connections, analysis_type):
+def rebuild_chains_with_new_connections(coinjoins, new_connections, analysis_type):
     """
     Rebuild chains incorporating newly discovered connections.
 
@@ -779,7 +779,6 @@ def rebuild_chains_with_new_connections(coinjoins, old_chains, new_connections, 
 
     Args:
         coinjoins: List of all CoinJoin objects
-        old_chains: Previous chains (for reference, not directly used)
         new_connections: List of (parent_txid, child_txid) tuples
         analysis_type: 'whitebox' or 'blackbox'
 

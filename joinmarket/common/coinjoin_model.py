@@ -65,9 +65,7 @@ class TxOutput:
     value: float  # BTC value
     confidence: float = 0
     address: Optional[str] = None  # Destination address if known
-    output_txid: Optional[str] = None  # Transaction ID if spent
     client: Optional[str] = None  # Owner client if known
-    is_change: bool = False  # Whether this is likely a change output
 
     def __hash__(self):
         return hash(self.address)
@@ -296,7 +294,6 @@ class CoinJoin:
                 value=out['value'],
                 address=addr,
                 client=client,
-                is_change=is_change
             )
             
             if client:

@@ -159,7 +159,6 @@ class FidelityBondStats:
 def calculate_fidelity_bond_value(
     amount: Optional[int],
     locktime: Optional[str],
-    current_block_height: Optional[int] = None,
     confirmation_time: Optional[int] = None,
     current_time: Optional[int] = None,
     exponent: float = 1.3,
@@ -324,7 +323,7 @@ def analyze_fidelity_bonds(
                     bond_amount=bond_amount,
                     bond_locktime=bond_locktime,
                     delta=participant.delta,
-                    bond_value=calculate_fidelity_bond_value(bond_amount, bond_locktime, cj.block_height)
+                    bond_value=calculate_fidelity_bond_value(bond_amount, bond_locktime)
                 )
                 tx_detail.makers.append(maker_in_tx)
 

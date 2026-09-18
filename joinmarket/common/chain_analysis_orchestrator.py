@@ -122,7 +122,6 @@ class ChainAnalysisOrchestrator:
             print(f"Rebuilding chains with new connections...")
             chains = rebuild_chains_with_new_connections(
                 coinjoins=coinjoins,
-                old_chains=chains,
                 new_connections=new_connections,
                 analysis_type=analysis_type
             )

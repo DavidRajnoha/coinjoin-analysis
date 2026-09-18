@@ -37,7 +37,6 @@ def _build_participants(best_solution: List[Dict[str, Any]], tx: Dict[str, Any],
             n=cj_outputs[n]['n'],
             value=cj_out['value'],                    # Decimal (sat)
             address=cj_outputs[n].get('scriptPubKey', {}).get('address'),
-            is_change=False,
             confidence=1/len(best_solution)
         )
 
@@ -49,7 +48,6 @@ def _build_participants(best_solution: List[Dict[str, Any]], tx: Dict[str, Any],
                 value=ch_out['value'],
                 confidence=1,
                 address=tx['vout'][ch_out['n']].get('scriptPubKey', {}).get('address'),
-                is_change=True,
             )
 
         participants.append(

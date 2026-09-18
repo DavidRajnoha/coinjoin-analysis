@@ -460,7 +460,6 @@ def main():
         blackbox_cj_objs=blackbox_cj_objs,
         whitebox_cj_objs=whitebox_cj_objs,
         output_dir=output_dir,
-        client_roles=client_roles,
         fidelity_bond_stats=fidelity_bond_stats,
         run_path=args.data_dir,
         show_block_timestamps=args.show_block_timestamps,

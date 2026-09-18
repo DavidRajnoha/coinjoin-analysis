@@ -91,7 +91,7 @@ def analyze_and_solve_sudoku_for_tx(
     target_sum = calculate_target_sum(miner_fee)
 
     return sudoku_matrix_multiplication(
-        inputs, cj_outs, ch_outs, N, miner_fee, maker_gain_max, fee_tol, target_sum
+        inputs, cj_outs, ch_outs, N, miner_fee, maker_gain_max, fee_tol
     )
 
     # Check input/output limits
@@ -686,8 +686,7 @@ def build_compatibility_matrix(valid_indices,
                                valid_subset_indicators,
                                change_outputs,
                                cj_outs,
-                               fee_tol,
-                               maker_gain_max,):
+                               maker_gain_max):
     cj_value = max(int(o['value']) for o in cj_outs)
     maker_gain_max_int = int(maker_gain_max)
     change_outputs = [int(ch['value']) for ch in change_outputs]
@@ -734,7 +733,7 @@ def subsets_overlap(subset_idx_a, subset_idx_b):
     return (subset_idx_a & subset_idx_b) != 0
 
 
-def find_valid_assignments(compatibility, compatibility_taker, ch_outs, cj_outs, maker_gain_max, fee_tol, miner_fee, subset_indicators):
+def find_valid_assignments(compatibility, compatibility_taker, ch_outs, cj_outs, maker_gain_max, fee_tol, miner_fee):
 
     context = MatrixSudokuDFSContext(
         compatibility=compatibility,
@@ -743,7 +742,6 @@ def find_valid_assignments(compatibility, compatibility_taker, ch_outs, cj_outs,
         maker_gain_max=maker_gain_max,
         fee_tol=fee_tol,
         miner_fee=miner_fee,
-        subset_indicators=subset_indicators,
         compatibility_taker=compatibility_taker
     )
     # Run the search
@@ -770,7 +768,7 @@ def filter_by_input_count(valid_indices, valid_sums, valid_subset_indicators, in
     return valid_indices, valid_sums, valid_subset_indicators
 
 
-def sudoku_matrix_multiplication(inputs, cj_outs, ch_outs, N, miner_fee, maker_gain_max, fee_tol, target_sum):
+def sudoku_matrix_multiplication(inputs, cj_outs, ch_outs, N, miner_fee, maker_gain_max, fee_tol):
     input_values = np.array([int(i['value']) for i in inputs], dtype=np.int64)
     if len(input_values) > 28:
         print(f"Too many inputs: {len(input_values)}")
@@ -795,7 +793,7 @@ def sudoku_matrix_multiplication(inputs, cj_outs, ch_outs, N, miner_fee, maker_g
 
     compatibility, compatibility_taker = build_compatibility_matrix(
         valid_indices, valid_sums, valid_subset_indicators,
-        ch_outs, cj_outs, fee_tol, maker_gain_max
+        ch_outs, cj_outs, maker_gain_max
     )
 
     valid_assignments = find_valid_assignments(compatibility,
@@ -804,22 +802,20 @@ def sudoku_matrix_multiplication(inputs, cj_outs, ch_outs, N, miner_fee, maker_g
                                                cj_outs,
                                                maker_gain_max,
                                                fee_tol,
-                                               miner_fee,
-                                               subset_indicators)
+                                               miner_fee)
 
     results = reconstruct_sudoku_solutions(valid_assignments,
                                            inputs,
                                            cj_outs,
                                            ch_outs,
                                            subset_indicators,
-                                           valid_indices,
                                            cj_outs[0]['value'],
                                            miner_fee)
 
     return results
 
 
-def reconstruct_sudoku_solutions(solutions, inputs, cj_outs, ch_outs, subset_indicators, valid_indices, cj_value, miner_fee):
+def reconstruct_sudoku_solutions(solutions, inputs, cj_outs, ch_outs, subset_indicators, cj_value, miner_fee):
     """
     Convert the assignment solutions back to the original rich object format.
 

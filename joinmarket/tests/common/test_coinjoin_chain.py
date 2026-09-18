@@ -10,8 +10,8 @@ def _create_tx_input(txid: str, vout: int, value: float, address: Optional[str] 
     return TxInput(txid=txid, vout=vout, value=value, address=address, client=client)
 
 # Helper function to create mock TxOutput
-def _create_tx_output(n: int, value: float, address: Optional[str] = None, client: Optional[str] = None, is_change: bool = False) -> TxOutput:
-    return TxOutput(n=n, value=value, address=address, client=client, is_change=is_change)
+def _create_tx_output(n: int, value: float, address: Optional[str] = None, client: Optional[str] = None) -> TxOutput:
+    return TxOutput(n=n, value=value, address=address, client=client)
 
 # Helper function to create mock CoinJoinParticipant
 def _create_participant(inputs: List[TxInput], cj_output: TxOutput, change_output: Optional[TxOutput] = None, 
@@ -655,7 +655,7 @@ def test_blackbox_chain_follows_zero_fee_maker_hop():
     # Tumbler now in a maker session: spends tx1 output as a zero-fee maker
     cj2 = _create_coinjoin("tx2", 101, [
         _create_participant([_create_tx_input("tx1", 0, 1.0)], _create_tx_output(0, 0.5),
-                            _create_tx_output(2, 0.5, is_change=True), role="zero_fee_maker"),
+                            _create_tx_output(2, 0.5), role="zero_fee_maker"),
         _create_participant([_create_tx_input("prev_b", 0, 0.6)], _create_tx_output(1, 0.5), role="taker"),
     ])
     # Back to taking, spending the zero-fee maker's change
@@ -705,8 +705,8 @@ def test_chain_attributor_keeps_two_tumblers_apart():
     from joinmarket.common.chain_based_attributor import ChainBasedAttributor
 
     # Parent: taker T and zero-fee maker Z (another tumbler) share tx1
-    t_change = _create_tx_output(2, 0.1, is_change=True)
-    z_change = _create_tx_output(3, 0.2, is_change=True)
+    t_change = _create_tx_output(2, 0.1)
+    z_change = _create_tx_output(3, 0.2)
     cj1 = _create_coinjoin("tx1", 100, [
         _create_participant([_create_tx_input("prev_t", 0, 1.2)], _create_tx_output(0, 1.0), t_change, role="taker"),
         _create_participant([_create_tx_input("prev_z", 0, 1.2)], _create_tx_output(1, 1.0), z_change, role="zero_fee_maker"),

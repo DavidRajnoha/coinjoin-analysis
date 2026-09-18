@@ -38,7 +38,7 @@ def test_zero_delta_subset_is_never_a_taker_candidate():
     valid_sums = np.array([110, 130])
     indicators = np.array([[1, 0], [0, 1]])
     compat, compat_taker = build_compatibility_matrix(
-        valid_indices, valid_sums, indicators, ch_outs, cj_outs, fee_tol=20, maker_gain_max=50)
+        valid_indices, valid_sums, indicators, ch_outs, cj_outs, maker_gain_max=50)
     assert 0 in compat[1]['compatible_changes']
     assert compat_taker[1]['compatible_changes'] == []
     assert 1 in compat_taker[2]['compatible_changes']

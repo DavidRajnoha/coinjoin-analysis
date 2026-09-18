@@ -1,3 +1,4 @@
+import collections
 """
 Helpers for aggregating and building unified CoinJoin report data.
 """
@@ -5,6 +6,7 @@ from typing import List, Dict, Any, Optional
 import pandas as pd
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
+from joinmarket.common.analysis_config import DEFAULT_CONFIG
 from joinmarket.common.chain_analysis_orchestrator import ChainAnalysisOrchestrator
 from joinmarket.common.coinjoin_chain import identify_coinjoin_chains
 from joinmarket.common.chain_based_attributor import ChainBasedAttributor
@@ -345,14 +347,14 @@ def aggregate_participant_breakdown(obj_comparison_data, whitebox_cj_objs):
     return detailed_participant_breakdown
 
 
-def aggregate_chain_stats(blackbox_cj_objs, whitebox_cj_objs):
+def aggregate_chain_stats(blackbox_cj_objs, whitebox_cj_objs, config=DEFAULT_CONFIG):
     """
     Aggregate chain statistics.
 
     For blackbox: Use orchestrator for iterative refinement (connection discovery).
     For whitebox: Use traditional flow (already has ground truth, no discovery needed).
     """
-    orchestrator = ChainAnalysisOrchestrator()
+    orchestrator = ChainAnalysisOrchestrator(config)
 
     # Blackbox: Run iterative chain analysis with refinement
     # This discovers additional connections missed during initial chain building
@@ -367,7 +369,7 @@ def aggregate_chain_stats(blackbox_cj_objs, whitebox_cj_objs):
     whitebox_identified_chains = identify_coinjoin_chains(whitebox_cj_objs, 'whitebox')
     print(f"  Found {len(whitebox_identified_chains)} chains")
 
-    attributor = ChainBasedAttributor()
+    attributor = ChainBasedAttributor(config)
     for chain in whitebox_identified_chains:
         attributor.attribute_chain(chain)
 
@@ -413,6 +415,39 @@ def aggregate_colored_tree_comparisons(chain_comparison_summary, chain_map):
 
 def _single_taker_for_txid(cj_objs, txid: str) -> Optional[str]:
     return _parse_single_client_id(get_taker_identities(cj_objs, txid))
+
+def compute_chain_purity(blackbox_chains, whitebox_chains) -> Dict[str, Any]:
+    """Chain-purity specificity: does each multi-tx blackbox chain stay inside one whitebox chain?
+
+    A blackbox chain is impure when it holds transactions of two or more whitebox chains,
+    i.e. the analysis glued different tumblers together. Transactions outside every whitebox
+    chain are ignored. Reported at chain level and at transaction level (share of transactions
+    sitting in a pure chain). Single-transaction chains cannot be impure and are skipped.
+    """
+    wb_chain_of_tx = {node.txid: wb.id for wb in whitebox_chains for node in wb.nodes}
+    pure_chains = impure_chains = pure_txs = impure_txs = 0
+    impure_details = []
+    for bb in blackbox_chains:
+        if bb.length() < 2:
+            continue
+        composition = collections.Counter(
+            wb_chain_of_tx[node.txid] for node in bb.nodes if node.txid in wb_chain_of_tx)
+        if len(composition) > 1:
+            impure_chains += 1
+            impure_txs += bb.length()
+            impure_details.append({'blackbox_chain_id': bb.id, 'length': bb.length(),
+                                   'whitebox_composition': dict(composition)})
+        else:
+            pure_chains += 1
+            pure_txs += bb.length()
+    chains = pure_chains + impure_chains
+    txs = pure_txs + impure_txs
+    return {
+        'chain_purity_specificity_chains': round(pure_chains / chains * 100, 2) if chains else None,
+        'chain_purity_specificity_txs': round(pure_txs / txs * 100, 2) if txs else None,
+        'impure_blackbox_chains': impure_details,
+    }
+
 
 def compute_chain_root_mapping_consistency(
     chain_comparison_summary: Dict[str, Any],
@@ -1098,7 +1133,8 @@ def build_unified_report_data(
     client_roles=None,
     fidelity_bond_stats=None,
     run_path=None,
-    show_block_timestamps=False
+    show_block_timestamps=False,
+    config=DEFAULT_CONFIG,
 ):
     """
     Aggregate and process all data for the unified CoinJoin report.
@@ -1118,8 +1154,9 @@ def build_unified_report_data(
         loader=FileSystemLoader(os.path.dirname(__file__) or "."),
         autoescape=select_autoescape()
     )
-    report_data = {}
-    blackbox_identified_chains, whitebox_identified_chains, txid_lists = aggregate_chain_stats(blackbox_cj_objs, whitebox_cj_objs)
+    report_data = {'analysis_config': config.to_dict()}
+    blackbox_identified_chains, whitebox_identified_chains, txid_lists = aggregate_chain_stats(
+        blackbox_cj_objs, whitebox_cj_objs, config)
 
     report_data['txid_comparison'] = aggregate_txid_comparison(blackbox_results, whitebox_data)
     obj_comparison_data = aggregate_object_comparison(blackbox_cj_objs, whitebox_cj_objs)
@@ -1139,6 +1176,7 @@ def build_unified_report_data(
         whitebox_cj_objs=whitebox_cj_objs,
     )
     chain_comparison_summary.update(chain_mapping_metrics)
+    chain_comparison_summary.update(compute_chain_purity(blackbox_identified_chains, whitebox_identified_chains))
     report_data['chain_comparison_summary'] = chain_comparison_summary
 
     # Compute taker CoinJoin output attribution metrics

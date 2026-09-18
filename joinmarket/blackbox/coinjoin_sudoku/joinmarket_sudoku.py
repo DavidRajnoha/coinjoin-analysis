@@ -57,8 +57,9 @@ SUBSET_INDICATORS_CACHE = {}
 # ─────────────────────────────────────────────────────────────────────────────
 # External dataclasses  (import paths unchanged)
 # ─────────────────────────────────────────────────────────────────────────────
+from joinmarket.common.analysis_config import AnalysisConfig, DEFAULT_CONFIG
 from joinmarket.common.coinjoin_model import (
-    CoinJoin
+    CoinJoin, relabel_roles
 )
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -460,6 +461,7 @@ def solve_sudoku_for_coinjoin_set(
     search_strategy: str = "start_high_always_search",
     max_iterations: int = 5,
     statistics_collector: Optional[SudokuStatisticsCollector] = None,
+    config: AnalysisConfig = DEFAULT_CONFIG,
 ) -> Tuple[List[CoinJoin], List[Dict[str, Any]]]:
     """
     Run Sudoku assignment for all CoinJoin candidates in the set.
@@ -475,6 +477,7 @@ def solve_sudoku_for_coinjoin_set(
             - "aggressive_downscale": Aggressive downscale steps (512k→128k→32k→8k), then binary search
         max_iterations: Maximum iterations for binary search
         statistics_collector: Optional statistics collector for performance analysis
+        config: Analysis switches (see AnalysisConfig)
     """
     coinjoin_results: List[Dict[str, Any]] = []
     coinjoin_objects: List[CoinJoin] = []
@@ -547,6 +550,7 @@ def solve_sudoku_for_coinjoin_set(
             best_solution = solutions[0]
             cj_value = max(set(o['cj']['value'] for o in best_solution), key=lambda x: sum(1 for o in best_solution if o['cj']['value'] == x))
             participants = _build_participants(best_solution, tx, cj_value) if solutions else []
+            relabel_roles(participants, config)
 
             # Extract total valid assignments from the solution metadata
             total_assignments = best_solution[0].get('_total_valid_assignments', 1) if best_solution else 1
@@ -704,7 +708,7 @@ def build_compatibility_matrix(valid_indices,
             if maker_gain_max_int >= diff >= 0:
                 compatible_changes.append(j)
 
-            if 0 >= diff >= - maker_gain_max_int * num_makers:
+            if -1 >= diff >= - maker_gain_max_int * num_makers:
                 compatible_changes_taker.append(j)
 
         compatibility[subset_idx] = {
@@ -847,7 +851,6 @@ def reconstruct_sudoku_solutions(solutions, inputs, cj_outs, ch_outs, subset_ind
             expected_output_value = int(cj_value) + int(change_output['value'])
             delta = expected_output_value - total_input_value
 
-            # Determine role based on delta sign
             role = 'maker' if delta >= 0 else 'taker'
 
             participant = {

@@ -57,9 +57,9 @@ def test_aggregate_chain_stats():
 
 def test_aggregate_chain_comparison_summary():
     # Should call compare_coinjoin_chains, just check dict output
-    def dummy_convert(x): return x
-    result = aggregate_chain_comparison_summary([], [], dummy_convert)
+    result = aggregate_chain_comparison_summary([], [])
     assert isinstance(result, dict)
+    assert result['total_blackbox_chains'] == 0
 
 def test_aggregate_colored_tree_comparisons():
     class DummyNode:
@@ -89,12 +89,16 @@ def test_aggregate_tx_statistics():
             self.tx = {"vin": vin, "vout": vout}
             self.cj_amount = cj_amount
             self.participants = [None]*participants
+            self.meta = {}
     cj1 = DummyCJ("t1", 100, [1,2], [1], 0.5, 2)
     cj2 = DummyCJ("t2", 101, [1], [1,2,3], 1.0, 3)
-    input_stats, output_stats, all_tx_stats = aggregate_tx_statistics([cj1], [cj2])
+    input_stats, output_stats, all_tx_stats, solve_status_stats = aggregate_tx_statistics([cj1], [cj2])
     assert isinstance(input_stats, dict)
     assert isinstance(output_stats, dict)
-    assert isinstance(all_tx_stats, list)
+    assert len(all_tx_stats) == 2
+    assert isinstance(solve_status_stats, dict)
+
+    assert aggregate_tx_statistics([], []) == (None, None, [], {})
 
 def test_aggregate_detailed_cj_objects():
     class DummyInput:

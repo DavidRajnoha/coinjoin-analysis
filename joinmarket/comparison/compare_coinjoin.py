@@ -437,8 +437,11 @@ def compare_coinjoin_chains(
     num_partially_matched = len(matched_pairs_details) - num_fully_matched
 
     return {
-        'total_blackbox_chains': len(blackbox_chains),
-        'total_whitebox_chains': len(whitebox_chains),
+        # Single-transaction chains are not chains; they are counted separately.
+        'total_blackbox_chains': sum(1 for c in blackbox_chains if c.length() > 1),
+        'total_whitebox_chains': sum(1 for c in whitebox_chains if c.length() > 1),
+        'singleton_blackbox_chains': sum(1 for c in blackbox_chains if c.length() == 1),
+        'singleton_whitebox_chains': sum(1 for c in whitebox_chains if c.length() == 1),
         'matched_chain_pairs': matched_pairs_details,
         'unmatched_blackbox_chain_ids': unmatched_bb_ids,
         'unmatched_whitebox_chain_ids': unmatched_wb_ids,

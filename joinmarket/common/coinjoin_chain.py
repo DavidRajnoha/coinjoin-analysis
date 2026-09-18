@@ -241,14 +241,12 @@ class CoinJoinTree:
         return self.total_cj_amount() / len(self.coinjoins)
     
     @property
-    def taker_clients(self) -> Set[str]:
-        """Get the set of taker clients in this tree."""
-        clients = set()
-        for cj in self.coinjoins:
-            for p in cj.participants:
-                if p.role == 'taker' and p.client:
-                    clients.add(p.client)
-        return clients
+    def tumbler_clients(self) -> Set[str]:
+        """Get the set of tumbler clients in this tree: takers, plus zero-fee makers that also take."""
+        participants = [p for cj in self.coinjoins for p in cj.participants if p.client]
+        takers = {p.client for p in participants if p.role == 'taker'}
+        zero_fee = {p.client for p in participants if p.is_tumbler_link and p.client in takers}
+        return takers | zero_fee
     
     @property
     def connections(self) -> Dict[str, List[str]]:
@@ -269,7 +267,7 @@ class CoinJoinTree:
             "duration_blocks": self.duration_blocks(),
             "total_cj_amount": self.total_cj_amount(),
             "avg_cj_amount": self.avg_cj_amount(),
-            "taker_clients": list(self.taker_clients),
+            "tumbler_clients": list(self.tumbler_clients),
             "tree_representation": tree_repr
         }
     
@@ -320,42 +318,31 @@ def _identify_whitebox_chains(sorted_cjs, analysis_type):
     client_cjs = {}
     client_connections = {}
     
-    # For each CoinJoin, get its taker clients and add to mapping
-    cjs_with_clients = []
-    cjs_without_clients = []
-    
-    # Track tx linkages for special case handling
-    txid_to_inputs = {}
-    
+    # A zero-fee maker participation is a tumbler leg only when that client also takes somewhere;
+    # otherwise it is an ordinary maker that happens to charge nothing.
+    taker_client_ids = {p.client for cj in sorted_cjs for p in cj.participants
+                        if p.role == 'taker' and p.client}
+
+    def is_tumbler_leg(p):
+        return p.client and (p.role == 'taker' or (p.is_tumbler_link and p.client in taker_client_ids))
+
     for cj in sorted_cjs:
-        # Map all inputs for later reference
-        txid_to_inputs[cj.txid] = []
+        tumbler_clients = set()
         for p in cj.participants:
-            for inp in p.inputs:
-                txid_to_inputs[cj.txid].append(inp)
+            if is_tumbler_leg(p):
+                tumbler_clients.add(p.client)
         
-        taker_clients = set()
-        for p in cj.participants:
-            if p.role == 'taker' and p.client:
-                taker_clients.add(p.client)
-        
-        # Split transactions based on whether they have client info or not
-        if taker_clients:
-            cjs_with_clients.append(cj)
-            for client in taker_clients:
-                if client not in client_cjs:
-                    client_cjs[client] = []
-                    client_connections[client] = {}
-                
-                client_cjs[client].append(cj)
-        else:
-            cjs_without_clients.append(cj)
+        for client in tumbler_clients:
+            if client not in client_cjs:
+                client_cjs[client] = []
+                client_connections[client] = {}
+            client_cjs[client].append(cj)
     
     # Build connections for each client recursively
     for client, client_txs in client_cjs.items():
         # Sort client's transactions by block height
         client_txs.sort(key=lambda cj: cj.block_height)
-        _build_client_connections(client, client_txs, client_connections)
+        _build_client_connections(client, client_txs, client_connections, is_tumbler_leg)
     
     # Create chains based on client groupings
     chains = []
@@ -376,16 +363,14 @@ def _identify_whitebox_chains(sorted_cjs, analysis_type):
         processed_clients.update(chain_clients)
         chains.append(chain)
     
-    # Handle transactions without client info
-    _handle_no_client_transactions(
-        chains, cjs_without_clients, sorted_cjs, cjs_with_clients, 
-        processed_txids, txid_to_inputs, analysis_type
-    )
-    
+    # Transactions outside every client chain (no attributable tumbler) become singleton
+    # chains, so each CoinJoin is placed exactly once, as in blackbox mode.
+    _add_remaining_singleton_chains(chains, sorted_cjs, processed_txids, analysis_type)
+
     return chains
 
 
-def _build_client_connections(client, client_txs, client_connections):
+def _build_client_connections(client, client_txs, client_connections, is_tumbler_leg):
     """Build connections between transactions for a client recursively.
     
     Args:
@@ -400,10 +385,10 @@ def _build_client_connections(client, client_txs, client_connections):
     # Recursively find connections starting from each transaction
     for i, cj in enumerate(client_txs):
         if i < len(client_txs) - 1:  # Skip the last transaction
-            _find_next_connections(client, cj, client_txs[i+1:], client_connections)
+            _find_next_connections(client, cj, client_txs[i+1:], client_connections, is_tumbler_leg)
 
 
-def _find_next_connections(client, current_cj, next_cjs, client_connections):
+def _find_next_connections(client, current_cj, next_cjs, client_connections, is_tumbler_leg):
     """Recursively find connections from current transaction to next transactions.
     
     Args:
@@ -413,13 +398,13 @@ def _find_next_connections(client, current_cj, next_cjs, client_connections):
         client_connections: Dictionary mapping clients to their connection dictionaries
     """
     # Extract outputs from current transaction for this client
-    taker_outputs = []
+    tumbler_outputs = []
     for p in current_cj.participants:
-        if p.role == 'taker' and p.client == client:
+        if is_tumbler_leg(p) and p.client == client:
             if p.cj_output:
-                taker_outputs.append(p.cj_output)
+                tumbler_outputs.append(p.cj_output)
             if p.change_output:
-                taker_outputs.append(p.change_output)
+                tumbler_outputs.append(p.change_output)
     
     # Look for connections to each potential next transaction
     for next_cj in next_cjs:
@@ -429,7 +414,7 @@ def _find_next_connections(client, current_cj, next_cjs, client_connections):
         
         # Check for connections
         for p_next in next_cj.participants:
-            if p_next.role == 'taker' and p_next.client == client:
+            if is_tumbler_leg(p_next) and p_next.client == client:
                 # Check if any input of next_cj references an output of current_cj
                 for inp in p_next.inputs:
                     if inp.txid == current_cj.txid:
@@ -562,70 +547,6 @@ def _find_related_clients(base_client, client_cjs, client_connections,
                                 chain_clients, txids_in_chain)
 
 
-def _handle_no_client_transactions(chains, cjs_without_clients, all_cjs, cjs_with_clients,
-                                   processed_txids, txid_to_inputs, analysis_type):
-    """Handle transactions without client info.
-    
-    Args:
-        chains: List of chains to add to
-        cjs_without_clients: List of CoinJoin objects without client info
-        all_cjs: List of all CoinJoin objects
-        cjs_with_clients: List of CoinJoin objects with client info
-        processed_txids: Set of transaction IDs already in chains
-        txid_to_inputs: Dictionary mapping transaction IDs to their inputs
-        analysis_type: 'whitebox' or 'blackbox'
-    """
-    # For backward compatibility: add singleton chains for remaining transactions without client info
-    # The test_chain_id_generation test expects no chains for transactions without client info
-    # But the test_single_coinjoin test expects a chain
-    create_no_client_chains = True
-    
-    # This check detects the test_chain_id_generation test case
-    no_taker_participants = True
-    for cj in all_cjs:
-        if cj.participants and cj.participants[0].role == 'taker' and cj.participants[0].client:
-            no_taker_participants = False
-            break
-    
-    # If we have only transactions with no client info but taker role,
-    # we should create chains for backward compatibility
-    if (no_taker_participants and len(all_cjs) > 1 and 
-            all(len(cj.participants) > 0 and cj.participants[0].role == "taker" for cj in all_cjs)):
-        create_no_client_chains = False
-    
-    if create_no_client_chains:
-        # Special case for test_single_coinjoin test
-        # Only create singleton chains for transactions without client info
-        # that aren't linked to other transactions
-        if len(all_cjs) == 1 and len(cjs_without_clients) == 1:
-            for cj in cjs_without_clients:
-                tree = CoinJoinTree(analysis_type=analysis_type)
-                node = CoinJoinLeafNode(cj)
-                tree.add_coinjoin(node)
-                chains.append(tree)
-        else:
-            # Only create chains for transactions that aren't linked to others with client info
-            has_client_txids = set(cj.txid for cj in cjs_with_clients)
-            
-            for cj in cjs_without_clients:
-                # Skip if already processed
-                if cj.txid in processed_txids:
-                    continue
-                
-                # Skip if linked directly to a transaction with client info
-                linked_to_client_tx = False
-                for inp in txid_to_inputs.get(cj.txid, []):
-                    if inp.txid in has_client_txids:
-                        linked_to_client_tx = True
-                        break
-                
-                if not linked_to_client_tx:
-                    tree = CoinJoinTree(analysis_type=analysis_type)
-                    node = CoinJoinLeafNode(cj)
-                    tree.add_coinjoin(node)
-                    chains.append(tree)
-
-
 def _identify_blackbox_chains(sorted_cjs, analysis_type):
     """Identify CoinJoin chains in blackbox mode using recursive approach.
     
@@ -642,34 +563,34 @@ def _identify_blackbox_chains(sorted_cjs, analysis_type):
     # Build mapping from transaction IDs to CoinJoin objects
     tx_map = {cj.txid: cj for cj in sorted_cjs}
     
-    # Set to track which CoinJoins have at least one taker
-    cjs_with_taker = set()
+    # Set to track which CoinJoins have at least one tumbler participant (taker or zero-fee maker)
+    cjs_with_tumbler = set()
     
-    # Map to track taker inputs for each CoinJoin
-    taker_inputs = defaultdict(set)
+    # Map to track tumbler inputs for each CoinJoin
+    tumbler_inputs = defaultdict(set)
     
-    # First pass: collect taker inputs
+    # First pass: collect tumbler inputs
     for cj in sorted_cjs:
-        has_taker = False
+        has_tumbler = False
         for participant in cj.participants:
-            if participant.role == 'taker':
-                has_taker = True
+            if participant.is_tumbler_link:
+                has_tumbler = True
                 for input_tx in participant.inputs:
-                    taker_inputs[cj.txid].add(input_tx.txid)
+                    tumbler_inputs[cj.txid].add(input_tx.txid)
         
-        if has_taker:
-            cjs_with_taker.add(cj.txid)
+        if has_tumbler:
+            cjs_with_tumbler.add(cj.txid)
     
-    # Find potential root transactions (those with takers not spending from other CoinJoins)
+    # Find potential root transactions (those with tumblers not spending from other CoinJoins)
     root_txids = []
     for cj in sorted_cjs:
-        # Skip transactions without takers
-        if cj.txid not in cjs_with_taker:
+        # Skip transactions without tumbler participants
+        if cj.txid not in cjs_with_tumbler:
             continue
         
-        # A transaction is a root if none of its TAKER inputs are from other CoinJoins
+        # A transaction is a root if none of its TUMBLER inputs are from other CoinJoins
         is_root = True
-        for input_txid in taker_inputs[cj.txid]:
+        for input_txid in tumbler_inputs[cj.txid]:
             if input_txid in tx_map:
                 is_root = False
                 break
@@ -677,58 +598,49 @@ def _identify_blackbox_chains(sorted_cjs, analysis_type):
         if is_root:
             root_txids.append(cj.txid)
     
-    # For each root transaction, build a chain
-    for root_txid in root_txids:
-        if root_txid in cjs_in_a_chain:
-            continue
-            
-        # Create a new chain with this transaction as root
+    def grow_chain(root_txid):
+        """Seed a chain at root_txid and extend it breadth-first along tumbler spends."""
         tree = CoinJoinTree(
             id=f"{analysis_type}_chain_{uuid.uuid4().hex[:8]}",
             analysis_type=analysis_type
         )
-        
-        # Add the root transaction to the chain
-        root_cj = tx_map[root_txid]
-        root_node = CoinJoinLeafNode(root_cj)
-        tree.add_coinjoin(root_node)
+        tree.add_coinjoin(CoinJoinLeafNode(tx_map[root_txid]))
         cjs_in_a_chain.add(root_txid)
-        
-        # Now build the chain using a breadth-first approach
+
         queue = [root_txid]
         
         while queue:
             current_txid = queue.pop(0)
             current_cj = tx_map[current_txid]
             
-            # Find transactions that have a taker and spend from this one
+            # Find transactions that have a tumbler participant and spend from this one
             for next_cj in sorted_cjs:
                 if next_cj.txid in cjs_in_a_chain or next_cj.txid == current_txid:
                     continue
                 
-                # Skip if it doesn't have a taker
-                if next_cj.txid not in cjs_with_taker:
+                # Skip if it doesn't have a tumbler participant
+                if next_cj.txid not in cjs_with_tumbler:
                     continue
                 
-                # Check if any taker inputs of next_cj come from current_cj
-                has_taker_spending_from_current = False
+                # Check if any tumbler inputs of next_cj come from current_cj
+                has_tumbler_spending_from_current = False
                 
                 for participant in next_cj.participants:
-                    # Only consider taker participants for building chains
-                    if participant.role != 'taker':
+                    # Only consider tumbler participants (taker / zero-fee maker) for building chains
+                    if not participant.is_tumbler_link:
                         continue
                         
                     for input_tx in participant.inputs:
                         # Check if this input comes from current transaction
                         if input_tx.txid == current_txid:
-                            has_taker_spending_from_current = True
+                            has_tumbler_spending_from_current = True
                             break
                     
-                    if has_taker_spending_from_current:
+                    if has_tumbler_spending_from_current:
                         break
                 
-                # Only follow taker connections
-                if has_taker_spending_from_current:
+                # Only follow tumbler connections
+                if has_tumbler_spending_from_current:
                     # Add this transaction to the chain
                     next_node = CoinJoinLeafNode(next_cj)
                     tree.add_coinjoin(next_node)
@@ -737,39 +649,24 @@ def _identify_blackbox_chains(sorted_cjs, analysis_type):
                     
                     # Add to queue for further processing
                     queue.append(next_cj.txid)
-        
-        # Add the chain to the list
+
         chains.append(tree)
-    
-    # Add any remaining transactions with takers as single-tx chains
+
+    for root_txid in root_txids:
+        if root_txid not in cjs_in_a_chain:
+            grow_chain(root_txid)
+
+    # Transactions whose tumbler inputs come from a CoinJoin that never made it into a chain
+    # (e.g. its Sudoku failed) are not roots, yet they head the rest of that chain: grow from
+    # them in block order instead of leaving each as a singleton.
     for cj in sorted_cjs:
-        if cj.txid in cjs_in_a_chain:
-            continue
-            
-        # Only create chains for transactions with takers
-        if cj.txid in cjs_with_taker:
-            tree = CoinJoinTree(
-                id=f"{analysis_type}_chain_{uuid.uuid4().hex[:8]}",
-                analysis_type=analysis_type
-            )
-            node = CoinJoinLeafNode(cj)
-            tree.add_coinjoin(node)
-            chains.append(tree)
-            cjs_in_a_chain.add(cj.txid)
+        if cj.txid not in cjs_in_a_chain and cj.txid in cjs_with_tumbler:
+            grow_chain(cj.txid)
     
-    # Add maker-only transactions as single-tx chains (to pass the test)
-    for cj in sorted_cjs:
-        if cj.txid in cjs_in_a_chain:
-            continue
-            
-        tree = CoinJoinTree(
-            id=f"{analysis_type}_chain_{uuid.uuid4().hex[:8]}",
-            analysis_type=analysis_type
-        )
-        node = CoinJoinLeafNode(cj)
-        tree.add_coinjoin(node)
-        chains.append(tree)
-    
+    # Transactions without any tumbler participant (unsolved or maker-only) still get a
+    # singleton chain so every CoinJoin is placed exactly once.
+    _add_remaining_singleton_chains(chains, sorted_cjs, cjs_in_a_chain, analysis_type)
+
     return chains
 
 

@@ -31,7 +31,7 @@ def test_identify_chains_empty_input():
     assert identify_coinjoin_chains([], 'blackbox') == []
     assert identify_coinjoin_chains([], 'whitebox') == []
 
-def test_single_coinjoin():
+def test_single_coinjoin_with_taker():
     cj1 = _create_coinjoin("tx1", 100, [
         _create_participant([_create_tx_input("prev_tx_a", 0, 1.0)], _create_tx_output(0, 1.0), role="taker")
     ])
@@ -79,7 +79,7 @@ def test_simple_whitebox_chain_matching_clients():
     assert chains[0].length() == 2
     assert chains[0].coinjoins[0].txid == "tx1"
     assert chains[0].coinjoins[1].txid == "tx2"
-    assert "clientA" in chains[0].taker_clients
+    assert "clientA" in chains[0].tumbler_clients
 
 def test_whitebox_chain_non_matching_clients():
     p1_cj1 = _create_participant([_create_tx_input("prev_a",0,1.1)], _create_tx_output(0, 1.0, client="clientA"), role="taker", client="clientA")
@@ -102,9 +102,8 @@ def test_whitebox_chain_missing_client_info():
     cj2 = _create_coinjoin("tx2", 101, [p1_cj2])
 
     chains = identify_coinjoin_chains([cj1, cj2], 'whitebox')
-    assert len(chains) == 1  # With our new implementation, we won't create a chain for the transaction without client
-    assert chains[0].length() == 1
-    assert chains[0].coinjoins[0].txid == "tx1"
+    # tx2 has no attributable client, so it is not linked to clientA but still placed as a singleton
+    assert sorted((c.length(), c.coinjoins[0].txid) for c in chains) == [(1, "tx1"), (1, "tx2")]
 
 def test_link_via_non_taker_participant():
     p1_cj1 = _create_participant([_create_tx_input("prev_a",0,1.1)], _create_tx_output(0, 1.0), role="taker")
@@ -179,9 +178,10 @@ def test_chain_id_generation():
     assert chains_bb[1].id.startswith("blackbox_chain_")
 
     chains_wb = identify_coinjoin_chains([cj1, cj2], 'whitebox')
-    
-    # Check that we have chains for whitebox too
-    assert len(chains_wb) == 0  # No clients so no chains for whitebox mode
+
+    # No client info: each transaction is placed as its own singleton chain
+    assert len(chains_wb) == 2
+    assert all(c.length() == 1 and c.id.startswith("whitebox_chain_") for c in chains_wb)
 
 def test_branching_scenario_from_one_cj_output():
     p_cj1 = _create_participant([_create_tx_input("prev_a",0,1.1)], _create_tx_output(0, 1.0), role="taker")
@@ -267,7 +267,7 @@ def test_identify_chains_whitebox():
     assert chains[0].start_block() == 100
     assert chains[0].end_block() == 120
     assert chains[0].duration_blocks() == 20
-    assert chains[0].taker_clients == {"clientA"}
+    assert chains[0].tumbler_clients == {"clientA"}
 
 def test_identify_chains_blackbox():
     """Test identifying CoinJoin chains in blackbox mode"""
@@ -402,14 +402,14 @@ def test_multiple_chains():
     assert len(wb_chains) == 2
     
     # Sort chains by client for consistent testing
-    wb_chains.sort(key=lambda c: list(c.taker_clients)[0] if c.taker_clients else "")
+    wb_chains.sort(key=lambda c: list(c.tumbler_clients)[0] if c.tumbler_clients else "")
     
-    assert wb_chains[0].taker_clients == {"clientA"}
+    assert wb_chains[0].tumbler_clients == {"clientA"}
     assert wb_chains[0].length() == 2
     assert set(cj.txid for cj in wb_chains[0].coinjoins) == {"tx1", "tx2"}
     assert wb_chains[0].connections == {"tx1": ["tx2"]}
     
-    assert wb_chains[1].taker_clients == {"clientB"}
+    assert wb_chains[1].tumbler_clients == {"clientB"}
     assert wb_chains[1].length() == 2
     assert set(cj.txid for cj in wb_chains[1].coinjoins) == {"tx3", "tx4"}
     assert wb_chains[1].connections == {"tx3": ["tx4"]}
@@ -487,7 +487,7 @@ def test_branching_chain():
     
     assert len(wb_chains) == 1
     assert wb_chains[0].length() == 3
-    assert wb_chains[0].taker_clients == {"clientA"}
+    assert wb_chains[0].tumbler_clients == {"clientA"}
     assert set(cj.txid for cj in wb_chains[0].coinjoins) == {"tx1", "tx2", "tx3"}
     assert wb_chains[0].connections == {"tx1": ["tx2", "tx3"]}
     
@@ -522,7 +522,7 @@ def test_singleton_chain():
     
     assert len(wb_chains) == 1
     assert wb_chains[0].length() == 1
-    assert wb_chains[0].taker_clients == {"clientA"}
+    assert wb_chains[0].tumbler_clients == {"clientA"}
     assert set(cj.txid for cj in wb_chains[0].coinjoins) == {"tx1"}
     assert wb_chains[0].connections == {}
     
@@ -552,12 +552,12 @@ def test_single_coinjoin():
         participants=[p1]
     )
     
-    # In whitebox mode, this should still create a chain for backward compatibility
+    # In whitebox mode an unattributable transaction is placed as a singleton chain
     wb_chains = identify_coinjoin_chains([cj], 'whitebox')
     
     assert len(wb_chains) == 1
     assert wb_chains[0].length() == 1
-    assert wb_chains[0].taker_clients == set()
+    assert wb_chains[0].tumbler_clients == set()
     assert set(cj.txid for cj in wb_chains[0].coinjoins) == {"tx1"}
     assert wb_chains[0].connections == {}
     
@@ -644,3 +644,89 @@ def test_tree_representation_with_repeated_nodes():
     # The node tx4 should appear twice (once as normal, once as repeated)
     tx4_count = sum(1 for line in lines if "tx4" in line)
     assert tx4_count == 2, f"tx4 should appear twice (once normal, once repeated), found {tx4_count} times"
+
+
+# ── JoinMarket-NG maker sessions (zero-fee maker legs of a tumbler) ──────────
+
+def test_blackbox_chain_follows_zero_fee_maker_hop():
+    cj1 = _create_coinjoin("tx1", 100, [
+        _create_participant([_create_tx_input("prev_a", 0, 1.1)], _create_tx_output(0, 1.0), role="taker")
+    ])
+    # Tumbler now in a maker session: spends tx1 output as a zero-fee maker
+    cj2 = _create_coinjoin("tx2", 101, [
+        _create_participant([_create_tx_input("tx1", 0, 1.0)], _create_tx_output(0, 0.5),
+                            _create_tx_output(2, 0.5, is_change=True), role="zero_fee_maker"),
+        _create_participant([_create_tx_input("prev_b", 0, 0.6)], _create_tx_output(1, 0.5), role="taker"),
+    ])
+    # Back to taking, spending the zero-fee maker's change
+    cj3 = _create_coinjoin("tx3", 102, [
+        _create_participant([_create_tx_input("tx2", 2, 0.5)], _create_tx_output(0, 0.4), role="taker")
+    ])
+    chains = identify_coinjoin_chains([cj1, cj2, cj3], 'blackbox')
+    assert len(chains) == 1
+    assert [cj.txid for cj in chains[0].coinjoins] == ["tx1", "tx2", "tx3"]
+    assert chains[0].connections == {"tx1": ["tx2"], "tx2": ["tx3"]}
+
+
+def test_blackbox_chain_does_not_follow_honest_maker_hop():
+    cj1 = _create_coinjoin("tx1", 100, [
+        _create_participant([_create_tx_input("prev_a", 0, 1.1)], _create_tx_output(0, 1.0), role="taker")
+    ])
+    cj2 = _create_coinjoin("tx2", 101, [
+        _create_participant([_create_tx_input("tx1", 0, 1.0)], _create_tx_output(0, 0.5), role="maker"),
+        _create_participant([_create_tx_input("prev_b", 0, 0.6)], _create_tx_output(1, 0.5), role="taker"),
+    ])
+    chains = identify_coinjoin_chains([cj1, cj2], 'blackbox')
+    assert len(chains) == 2
+
+
+def test_whitebox_zero_fee_maker_counts_only_for_taking_clients():
+    # clientA tumbles (takes in tx1, zero-fee makes in tx2); clientM is an ordinary maker with delta 0
+    cj1 = _create_coinjoin("tx1", 100, [
+        _create_participant([_create_tx_input("prev_a", 0, 1.1, client="clientA")],
+                            _create_tx_output(0, 1.0, client="clientA"), role="taker", client="clientA")
+    ])
+    cj2 = _create_coinjoin("tx2", 101, [
+        _create_participant([_create_tx_input("tx1", 0, 1.0, client="clientA")],
+                            _create_tx_output(0, 0.5, client="clientA"), role="zero_fee_maker", client="clientA"),
+        _create_participant([_create_tx_input("prev_m", 0, 0.5, client="clientM")],
+                            _create_tx_output(1, 0.5, client="clientM"), role="zero_fee_maker", client="clientM"),
+        _create_participant([_create_tx_input("prev_b", 0, 0.6, client="clientB")],
+                            _create_tx_output(2, 0.5, client="clientB"), role="taker", client="clientB"),
+    ])
+    chains = identify_coinjoin_chains([cj1, cj2], 'whitebox')
+    assert len(chains) == 1
+    assert chains[0].connections == {"tx1": ["tx2"]}
+    assert chains[0].tumbler_clients == {"clientA", "clientB"}
+
+
+def test_chain_attributor_keeps_two_tumblers_apart():
+    from joinmarket.common.analysis_config import AnalysisConfig
+    from joinmarket.common.chain_based_attributor import ChainBasedAttributor
+
+    # Parent: taker T and zero-fee maker Z (another tumbler) share tx1
+    t_change = _create_tx_output(2, 0.1, is_change=True)
+    z_change = _create_tx_output(3, 0.2, is_change=True)
+    cj1 = _create_coinjoin("tx1", 100, [
+        _create_participant([_create_tx_input("prev_t", 0, 1.2)], _create_tx_output(0, 1.0), t_change, role="taker"),
+        _create_participant([_create_tx_input("prev_z", 0, 1.2)], _create_tx_output(1, 1.0), z_change, role="zero_fee_maker"),
+    ])
+    # Child 1: Z takes, spending its change and its cj output from tx1
+    cj2 = _create_coinjoin("tx2", 101, [
+        _create_participant([_create_tx_input("tx1", 3, 0.2), _create_tx_input("tx1", 1, 1.0)],
+                            _create_tx_output(0, 0.9), role="taker", client="Z"),
+    ])
+    # Child 2: T takes, spending only its cj output from tx1
+    cj3 = _create_coinjoin("tx3", 102, [
+        _create_participant([_create_tx_input("tx1", 0, 1.0)], _create_tx_output(0, 0.9), role="taker"),
+    ])
+    chains = identify_coinjoin_chains([cj1, cj2, cj3], 'blackbox')
+    assert len(chains) == 1
+    ChainBasedAttributor(AnalysisConfig(maker_sessions=True)).attribute_chain(chains[0])
+
+    t, z = cj1.participants
+    assert z.client == "Z"
+    assert z.cj_output is not None and z.cj_output.n == 1
+    assert t.cj_output is not None and t.cj_output.n == 0
+    assert t.client != "Z"
+    assert cj3.participants[0].client == t.client

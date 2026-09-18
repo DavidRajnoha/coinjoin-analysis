@@ -7,6 +7,7 @@ attribution results to find additional relationships.
 """
 from typing import List, Any
 
+from joinmarket.common.analysis_config import AnalysisConfig, DEFAULT_CONFIG
 from joinmarket.common.coinjoin_chain import identify_coinjoin_chains, rebuild_chains_with_new_connections
 from joinmarket.common.chain_based_attributor import ChainBasedAttributor
 from joinmarket.common.connection_discoverer import ConnectionDiscoverer
@@ -15,9 +16,10 @@ from joinmarket.common.connection_discoverer import ConnectionDiscoverer
 class ChainAnalysisOrchestrator:
     """Orchestrates iterative chain analysis with connection discovery."""
 
-    def __init__(self):
+    def __init__(self, config: AnalysisConfig = DEFAULT_CONFIG):
         """Initialize orchestrator with attributor and discoverer."""
-        self.attributor = ChainBasedAttributor()
+        self.config = config
+        self.attributor = ChainBasedAttributor(config)
         self.discoverer = ConnectionDiscoverer()
 
     def _restore_unassigned_outputs(self, coinjoins: List[Any]):
@@ -43,8 +45,8 @@ class ChainAnalysisOrchestrator:
             # Find unassigned participants
             unassigned_participants = [p for p in cj.participants if not p.cj_output]
 
-            # Find remaining outputs
-            remaining_outputs = [out for out in cj.cj_outs if out not in assigned_outputs]
+            # Find remaining outputs; cj_outs is a set, so order by index to keep runs deterministic
+            remaining_outputs = sorted((out for out in cj.cj_outs if out not in assigned_outputs), key=lambda o: o.n)
 
             # Assign remaining outputs to unassigned participants
             for participant, output in zip(unassigned_participants, remaining_outputs):

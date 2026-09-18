@@ -165,6 +165,7 @@
 <div class="stats-boxes">
     <div class="stat-box"><strong>Total Blackbox Chains:</strong> {{ report_data.chain_comparison_summary.total_blackbox_chains }}</div>
     <div class="stat-box"><strong>Total Whitebox Chains:</strong> {{ report_data.chain_comparison_summary.total_whitebox_chains }}</div>
+    <div class="stat-box"><strong>Single-tx Blackbox / Whitebox:</strong> {{ report_data.chain_comparison_summary.singleton_blackbox_chains }} / {{ report_data.chain_comparison_summary.singleton_whitebox_chains }}</div>
     <div class="stat-box"><strong>Matched Pairs:</strong> {{ report_data.chain_comparison_summary.num_matched_pairs }}</div>
     <div class="stat-box"><strong>Fully Matched Pairs:</strong> {{ report_data.chain_comparison_summary.num_fully_matched_pairs }}</div>
     <div class="stat-box"><strong>Partially Matched Pairs:</strong> {{ report_data.chain_comparison_summary.num_partially_matched_pairs }}</div>
@@ -180,13 +181,21 @@
         {% endif %}
         <br><small>WB nodes correctly identified as root identity in BB</small>
     </div>
-    <div class="stat-box" style="background-color: #d4edda;"><strong>Chain Separation Specificity:</strong>
+    <div class="stat-box" style="background-color: #d4edda;"><strong>Root Identity Separation:</strong>
         {% if report_data.chain_comparison_summary.chain_identification_specificity_nodes is not none %}
             {{ report_data.chain_comparison_summary.chain_identification_specificity_nodes }}%
         {% else %}
             N/A
         {% endif %}
-        <br><small>% of WB chains kept separate by BB (not merged with other WB chains)</small>
+        <br><small>% of matched WB chains whose BB root identity is not shared with another WB chain</small>
+    </div>
+    <div class="stat-box" style="background-color: #d4edda;"><strong>Chain Purity Specificity (Chains):</strong>
+        {% if report_data.chain_comparison_summary.chain_purity_specificity_chains is not none %}
+            {{ report_data.chain_comparison_summary.chain_purity_specificity_chains }}%
+        {% else %}
+            N/A
+        {% endif %}
+        <br><small>% of multi-tx BB chains containing transactions of a single WB chain</small>
     </div>
     <div class="stat-box" style="background-color: #b8c5dd;"><strong>Chain Identification Coverage (Leaves) - Sensitivity:</strong>
         {% if report_data.chain_comparison_summary.chain_identification_coverage_leaves is not none %}
@@ -196,13 +205,13 @@
         {% endif %}
         <br><small>WB leaf nodes correctly identified as root identity in BB</small>
     </div>
-    <div class="stat-box" style="background-color: #d4edda;"><strong>Chain Separation Specificity (same as above):</strong>
-        {% if report_data.chain_comparison_summary.chain_identification_specificity_leaves is not none %}
-            {{ report_data.chain_comparison_summary.chain_identification_specificity_leaves }}%
+    <div class="stat-box" style="background-color: #d4edda;"><strong>Chain Purity Specificity (Transactions):</strong>
+        {% if report_data.chain_comparison_summary.chain_purity_specificity_txs is not none %}
+            {{ report_data.chain_comparison_summary.chain_purity_specificity_txs }}%
         {% else %}
             N/A
         {% endif %}
-        <br><small>Chain-level metric (identical for nodes and leaves)</small>
+        <br><small>% of transactions in multi-tx BB chains that sit in a pure chain</small>
     </div>
     <div class="stat-box"><strong>Root Mapping Strict Consistency (Nodes):</strong>
         {% if report_data.chain_comparison_summary.chain_root_mapping_strict_consistency_nodes is not none %}

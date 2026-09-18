@@ -56,6 +56,9 @@ def remove_coinjoin_trees(report_data: dict):
     """
     json_ready_data = dict()
 
+    if report_data.get('analysis_config'):
+        json_ready_data['analysis_config'] = report_data['analysis_config']
+
     # TXID comparison data
     json_ready_data['txid_comparison_stats'] = { 
         'blackbox_txids': report_data['txid_comparison']['total_blackbox'],
@@ -90,6 +93,8 @@ def remove_coinjoin_trees(report_data: dict):
     json_ready_data['chain_comparison_summary'] = {
         'total_blackbox_chains': chain_summary.get('total_blackbox_chains'),
         'total_whitebox_chains': chain_summary.get('total_whitebox_chains'),
+        'singleton_blackbox_chains': chain_summary.get('singleton_blackbox_chains'),
+        'singleton_whitebox_chains': chain_summary.get('singleton_whitebox_chains'),
         'num_matched_pairs': chain_summary.get('num_matched_pairs'),
         'num_fully_matched_pairs': chain_summary.get('num_fully_matched_pairs'),
         'num_partially_matched_pairs': chain_summary.get('num_partially_matched_pairs'),
@@ -99,6 +104,9 @@ def remove_coinjoin_trees(report_data: dict):
         # Add chain identification specificity metrics
         'chain_identification_specificity_nodes': chain_summary.get('chain_identification_specificity_nodes'),
         'chain_identification_specificity_leaves': chain_summary.get('chain_identification_specificity_leaves'),
+        'chain_purity_specificity_chains': chain_summary.get('chain_purity_specificity_chains'),
+        'chain_purity_specificity_txs': chain_summary.get('chain_purity_specificity_txs'),
+        'impure_blackbox_chains': chain_summary.get('impure_blackbox_chains'),
         # Add strict consistency metrics
         'chain_root_mapping_strict_consistency_nodes': chain_summary.get('chain_root_mapping_strict_consistency_nodes'),
         'chain_root_mapping_strict_consistency_leaves': chain_summary.get('chain_root_mapping_strict_consistency_leaves'),

@@ -16,7 +16,8 @@ project_root = str(Path(__file__).parent.parent.parent)
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from joinmarket.common.coinjoin_model import CoinJoin, generate_coinjoin_flow_vis_graph
+from joinmarket.common.analysis_config import AnalysisConfig, DEFAULT_CONFIG
+from joinmarket.common.coinjoin_model import CoinJoin, generate_coinjoin_flow_vis_graph, relabel_coinjoin_roles
 from joinmarket.blackbox.parse_blockchain import detect_coinjoin_txs
 from joinmarket.blackbox.coinjoin_sudoku.joinmarket_sudoku import solve_sudoku_for_coinjoin_set
 from joinmarket.blackbox.coinjoin_sudoku.sudoku_statistics import SudokuStatisticsCollector
@@ -48,7 +49,8 @@ def load_blockchain_data(data_dir: str) -> Tuple[Dict[str, Any], Dict[str, Any]]
     return block_map, tx_map
 
 
-def run_blackbox_analysis(tx_map: Dict[str, Any], statistics_collector: SudokuStatisticsCollector = None) -> Tuple[List[Tuple[str, Dict, Dict]], List[Dict[str, Any]], List[CoinJoin]]:
+def run_blackbox_analysis(tx_map: Dict[str, Any], statistics_collector: SudokuStatisticsCollector = None,
+                          config: AnalysisConfig = DEFAULT_CONFIG) -> Tuple[List[Tuple[str, Dict, Dict]], List[Dict[str, Any]], List[CoinJoin]]:
     """
     Run blackbox analysis on the transaction data.
 
@@ -79,7 +81,8 @@ def run_blackbox_analysis(tx_map: Dict[str, Any], statistics_collector: SudokuSt
         blackbox_coinjoins, tx_map,
         search_strategy=SEARCH_STRATEGY,
         max_iterations=MAX_ITERATIONS,
-        statistics_collector=statistics_collector
+        statistics_collector=statistics_collector,
+        config=config,
     )
     print(f"Analyzed {len(blackbox_results)} CoinJoin transactions with blackbox approach")
     print(f"Created {len(blackbox_cj_objs)} CoinJoin objects from blackbox analysis")
@@ -87,7 +90,8 @@ def run_blackbox_analysis(tx_map: Dict[str, Any], statistics_collector: SudokuSt
     return blackbox_coinjoins, blackbox_results, blackbox_cj_objs
 
 
-def run_whitebox_analysis(tx_map: Dict[str, Any], data_dir: str) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]], List[CoinJoin]]:
+def run_whitebox_analysis(tx_map: Dict[str, Any], data_dir: str,
+                          config: AnalysisConfig = DEFAULT_CONFIG) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]], List[CoinJoin]]:
     """
     Run whitebox analysis on the transaction data.
     
@@ -103,7 +107,7 @@ def run_whitebox_analysis(tx_map: Dict[str, Any], data_dir: str) -> Tuple[List[D
     run_path = data_dir
     
     # Run whitebox analysis
-    whitebox_data, whitebox_edges, cj_objs = analyze_coinjoins(run_path, tx_map)
+    whitebox_data, whitebox_edges, cj_objs = analyze_coinjoins(run_path, tx_map, config)
     
     print(f"Found {len(whitebox_data)} CoinJoin transactions using whitebox analysis")
     print(f"Created {len(cj_objs)} CoinJoin objects from whitebox analysis")
@@ -272,17 +276,36 @@ def main():
                         choices=["both", "blackbox", "whitebox"],
                         default="both",
                         help="Which analysis to run: both (default), blackbox only, or whitebox only")
-    parser.add_argument("--whitebox", action="store_true",
-                        help="Enable whitebox-specific features in report (e.g., display block timestamps)")
+    parser.add_argument("--show-block-timestamps", action="store_true",
+                        help="Show block timestamps in the detailed CoinJoin table of the HTML report")
+    parser.add_argument("--cache-dir",
+                        help="Where Sudoku/whitebox pickles are cached (default: data_dir/analysis_cache). "
+                             "The cache is analysis-mode independent; roles are relabelled on load.")
     parser.add_argument("--collect-stats", action="store_true",
                         help="Collect performance statistics during sudoku solving")
+    parser.add_argument("--maker-sessions", action="store_true",
+                        help="Account for JoinMarket-NG tumbler maker sessions (zero-fee makers are tumbler legs). "
+                             "Default output dir becomes data_dir/report_unified_maker_sessions so caches of the "
+                             "two modes never mix.")
+    parser.add_argument("--zero-fee-tolerance", type=int, default=0,
+                        help="Max delta (sat) still treated as a zero-fee maker (with --maker-sessions)")
+    parser.add_argument("--strict-links", dest="strict_links", action="store_true", default=None,
+                        help="Chain attribution follows only tumbler spends and identity-matched outputs "
+                             "(default: on with --maker-sessions, off otherwise)")
+    parser.add_argument("--no-strict-links", dest="strict_links", action="store_false",
+                        help="Force legacy chain attribution linking even with --maker-sessions")
     args = parser.parse_args()
-    
-    # Create output directory
+
+    config = AnalysisConfig(maker_sessions=args.maker_sessions, zero_fee_tolerance=args.zero_fee_tolerance,
+                            strict_tumbler_links=args.strict_links)
+    print(f"Analysis mode: {config.label}")
+
+    # Create output directory; each mode gets its own so pickle caches never mix
     if args.out_dir:
         output_dir = args.out_dir
     else:
-        output_dir = os.path.join(args.data_dir, "report_unified")
+        suffix = "" if config.label == "legacy" else f"_{config.label}"
+        output_dir = os.path.join(args.data_dir, f"report_unified{suffix}")
     os.makedirs(output_dir, exist_ok=True)
 
     print(f"Analyzing CoinJoins in {args.data_dir}")
@@ -293,6 +316,18 @@ def main():
         print("Initializing performance statistics collector...")
         stats_collector = SudokuStatisticsCollector(enabled=True)
     
+    # Cache is shared by all analysis modes of this run. Falls back to pickles an older
+    # version left next to the legacy report so they need not be recomputed.
+    cache_dir = args.cache_dir or os.path.join(args.data_dir, "analysis_cache")
+    os.makedirs(cache_dir, exist_ok=True)
+    legacy_cache_dir = os.path.join(args.data_dir, "report_unified")
+
+    def cache_source(*files):
+        for d in (cache_dir, legacy_cache_dir):
+            if all(os.path.exists(os.path.join(d, f)) for f in files):
+                return d
+        return cache_dir
+
     # Load caches independently to avoid redoing long-running steps unnecessarily
     blackbox_results = whitebox_data = blackbox_cj_objs = whitebox_cj_objs = None
 
@@ -301,15 +336,21 @@ def main():
     run_whitebox = args.analysis in ["both", "whitebox"]
 
     if not args.no_cache:
-        print(f"Loading analysis results from pickle cache in {output_dir}...")
+        print(f"Loading analysis results from pickle cache in {cache_dir}...")
+        def load_shared(results_file, objs_file, label):
+            src = cache_source(results_file, objs_file)
+            results, objs = load_cache_pair(src, results_file, objs_file, label=label)
+            if src != cache_dir and results is not None and objs is not None:
+                print(f"Adopting {label} pickles from {src} into {cache_dir}")
+                save_cache_pair(cache_dir, results_file, objs_file, results, objs, label=label)
+            return results, objs
+
         if run_blackbox:
-            blackbox_results, blackbox_cj_objs = load_cache_pair(
-                output_dir, "blackbox_results.pkl", "blackbox_cj_objs.pkl", label="blackbox"
-            )
+            blackbox_results, blackbox_cj_objs = load_shared(
+                "blackbox_results.pkl", "blackbox_cj_objs.pkl", label="blackbox")
         if run_whitebox:
-            whitebox_data, whitebox_cj_objs = load_cache_pair(
-                output_dir, "whitebox_data.pkl", "whitebox_cj_objs.pkl", label="whitebox"
-            )
+            whitebox_data, whitebox_cj_objs = load_shared(
+                "whitebox_data.pkl", "whitebox_cj_objs.pkl", label="whitebox")
     else:
         print(f"--no-cache specified; will recompute {args.analysis} analysis.")
 
@@ -325,20 +366,25 @@ def main():
     if need_run_bb:
         print("Running blackbox (sudoku) analysis...")
         def _run_bb():
-            _, res, objs = run_blackbox_analysis(tx_map, statistics_collector=stats_collector)
+            _, res, objs = run_blackbox_analysis(tx_map, statistics_collector=stats_collector, config=config)
             return res, objs
         blackbox_results, blackbox_cj_objs = run_and_cache(
-            _run_bb, output_dir, "blackbox_results.pkl", "blackbox_cj_objs.pkl", label="blackbox"
+            _run_bb, cache_dir, "blackbox_results.pkl", "blackbox_cj_objs.pkl", label="blackbox"
         )
 
     if need_run_wb:
         print("Running whitebox analysis...")
         def _run_wb():
-            data, _, objs = run_whitebox_analysis(tx_map, args.data_dir)
+            data, _, objs = run_whitebox_analysis(tx_map, args.data_dir, config)
             return data, objs
         whitebox_data, whitebox_cj_objs = run_and_cache(
-            _run_wb, output_dir, "whitebox_data.pkl", "whitebox_cj_objs.pkl", label="whitebox"
+            _run_wb, cache_dir, "whitebox_data.pkl", "whitebox_cj_objs.pkl", label="whitebox"
         )
+
+    # Cached objects may have been labelled under another mode; roles derive from deltas
+    for objs in (blackbox_cj_objs, whitebox_cj_objs):
+        if objs:
+            relabel_coinjoin_roles(objs, config)
 
     # Initialize empty data for skipped analyses
     if not run_blackbox:
@@ -417,7 +463,8 @@ def main():
         client_roles=client_roles,
         fidelity_bond_stats=fidelity_bond_stats,
         run_path=args.data_dir,
-        show_block_timestamps=args.whitebox
+        show_block_timestamps=args.show_block_timestamps,
+        config=config,
     )
 
     # Export statistics if collected

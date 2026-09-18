@@ -12,6 +12,7 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 from typing import List, Dict, Any, Optional
 
 
+from joinmarket.common.analysis_config import AnalysisConfig, DEFAULT_CONFIG
 from joinmarket.comparison.chain_visualization import generate_colored_chain_comparison
 from joinmarket.unified_report.json_report import build_unified_report_json_from_data
 from joinmarket.unified_report.unified_report_data import (
@@ -103,7 +104,8 @@ def generate_unified_report(
     client_roles: Optional[Dict[str, str]] = None,
     fidelity_bond_stats: Optional[Any] = None,
     run_path: Optional[str] = None,
-    show_block_timestamps: bool = False
+    show_block_timestamps: bool = False,
+    config: AnalysisConfig = DEFAULT_CONFIG,
 ):
     """
     Generate both HTML and JSON unified CoinJoin reports.
@@ -127,7 +129,8 @@ def generate_unified_report(
         client_roles=client_roles,
         fidelity_bond_stats=fidelity_bond_stats,
         run_path=run_path,
-        show_block_timestamps=show_block_timestamps
+        show_block_timestamps=show_block_timestamps,
+        config=config,
     )
     render_unified_report_json(report_data, output_dir)
     render_unified_report_html(report_data, output_dir)

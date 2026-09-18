@@ -33,7 +33,8 @@ def test_compare_chains_empty_inputs():
 def test_compare_chains_one_side_empty():
     bb_chain1 = _create_chain("bb1", [_create_cj("tx1")], "blackbox")
     result = compare_coinjoin_chains([bb_chain1], [])
-    assert result['total_blackbox_chains'] == 1
+    assert result['total_blackbox_chains'] == 0
+    assert result['singleton_blackbox_chains'] == 1
     assert result['total_whitebox_chains'] == 0
     assert result['matched_chain_pairs'] == []
     assert result['unmatched_blackbox_chain_ids'] == ["blackbox_chain_bb1"]
@@ -43,7 +44,8 @@ def test_compare_chains_one_side_empty():
     wb_chain1 = _create_chain("wb1", [_create_cj("tx1")], "whitebox")
     result = compare_coinjoin_chains([], [wb_chain1])
     assert result['total_blackbox_chains'] == 0
-    assert result['total_whitebox_chains'] == 1
+    assert result['total_whitebox_chains'] == 0
+    assert result['singleton_whitebox_chains'] == 1
     assert result['matched_chain_pairs'] == []
     assert result['unmatched_blackbox_chain_ids'] == []
     assert result['unmatched_whitebox_chain_ids'] == ["whitebox_chain_wb1"]
@@ -144,8 +146,10 @@ def test_compare_chains_multiple_chains_mixed_matches():
 
     result = compare_coinjoin_chains([bb1, bb2, bb3], [wb1, wb2, wb3])
 
-    assert result['total_blackbox_chains'] == 3
-    assert result['total_whitebox_chains'] == 3
+    assert result['total_blackbox_chains'] == 2
+    assert result['total_whitebox_chains'] == 2
+    assert result['singleton_blackbox_chains'] == 1
+    assert result['singleton_whitebox_chains'] == 1
     assert result['num_matched_pairs'] == 2
     assert result['num_fully_matched_pairs'] == 1
     assert result['num_partially_matched_pairs'] == 1

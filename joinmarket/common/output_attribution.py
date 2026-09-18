@@ -5,6 +5,7 @@ from dataclasses import dataclass
 class Role(Enum):
     TAKER = "taker"
     MAKER = "maker"
+    ZERO_FEE_MAKER = "zero_fee_maker"
     UNKNOWN = "unknown"
 
 

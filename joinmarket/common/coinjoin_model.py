@@ -9,6 +9,40 @@ from typing import Dict, List, Any, Optional, Set, Tuple
 from dataclasses import dataclass, field
 from collections import defaultdict
 
+from joinmarket.common.analysis_config import AnalysisConfig, DEFAULT_CONFIG
+
+ROLE_TAKER = 'taker'
+ROLE_MAKER = 'maker'
+# JoinMarket-NG maker sessions run with cjfee_abs=0 and no tx-fee contribution,
+# so their delta is exactly 0. Such a participant is the tumbler wallet itself.
+ROLE_ZERO_FEE_MAKER = 'zero_fee_maker'
+TUMBLER_ROLES = frozenset({ROLE_TAKER, ROLE_ZERO_FEE_MAKER})
+
+
+def role_from_delta(delta_sat: int, config: AnalysisConfig = DEFAULT_CONFIG) -> str:
+    if delta_sat < 0:
+        return ROLE_TAKER
+    if config.maker_sessions and delta_sat <= config.zero_fee_tolerance:
+        return ROLE_ZERO_FEE_MAKER
+    return ROLE_MAKER
+
+
+def relabel_roles(participants, config: AnalysisConfig, delta_to_sat=int) -> None:
+    """Re-derive taker/maker/zero-fee-maker roles from deltas under the given config."""
+    for p in participants:
+        if p.role in (ROLE_TAKER, ROLE_MAKER, ROLE_ZERO_FEE_MAKER):
+            p.role = role_from_delta(delta_to_sat(p.delta), config)
+
+
+def relabel_coinjoin_roles(coinjoins, config: AnalysisConfig) -> None:
+    """Relabel roles of cached CoinJoin objects so one cache serves every analysis mode.
+
+    Blackbox objects carry deltas in satoshis, whitebox objects in BTC.
+    """
+    for cj in coinjoins:
+        to_sat = (lambda d: round(d * 1e8)) if cj.meta.get('whitebox_analysis') else int
+        relabel_roles(cj.participants, config, to_sat)
+
 # Remove direct imports of visualization modules
 # from joinmarket.visualisation.cj_flow_graph_data import CoinJoinGraphBuilder
 # from joinmarket.visualisation.tx_output import TxOutputRegistry
@@ -45,12 +79,12 @@ class CoinJoinParticipant:
     A single participant in a CoinJoin transaction.
 
     Each participant contributes inputs and receives outputs (CoinJoin amount and possibly change).
-    The role can be 'maker', 'taker', or 'unknown' depending on the information available.
+    The role can be 'maker', 'taker', 'zero_fee_maker' or 'unknown' depending on the information available.
     """
     inputs: List[TxInput]  # List of inputs provided by this participant
     cj_output: TxOutput  # The CoinJoin output belonging to this participant
     change_output: Optional[TxOutput] = None  # Change output if any
-    role: str = "unknown"  # 'maker', 'taker', or 'unknown'
+    role: str = "unknown"  # 'maker', 'taker', 'zero_fee_maker' or 'unknown'
     client: Optional[str] = None  # Client ID if known
     delta: float = 0.0  # Difference between outputs and inputs (negative = fee paid)
     # HEURISTIC: set to True if this participant was formed by a heuristic due to missing data mapping
@@ -60,6 +94,11 @@ class CoinJoinParticipant:
     fidelity_bond_amount: Optional[int] = None  # Bond amount in satoshis
     fidelity_bond_locktime: Optional[str] = None  # Locktime in "YYYY-MM" format
     
+    @property
+    def is_tumbler_link(self) -> bool:
+        """True if this participant is the tumbler wallet (taker, or zero-fee maker session)."""
+        return self.role in TUMBLER_ROLES
+
     @property
     def input_value(self) -> float:
         """Total value of all inputs."""
@@ -131,7 +170,8 @@ class CoinJoin:
     
     @classmethod
     def from_whitebox(cls, txid: str, tx: Dict[str, Any], block: Dict[str, Any], 
-                     address_to_client: Dict[str, str], tx_map: Optional[Dict[str, Any]] = None) -> CoinJoin:
+                     address_to_client: Dict[str, str], tx_map: Optional[Dict[str, Any]] = None,
+                     config: AnalysisConfig = DEFAULT_CONFIG) -> CoinJoin:
         """
         Create a CoinJoin instance from whitebox data using address-to-client mapping.
         
@@ -141,6 +181,7 @@ class CoinJoin:
             block: Block data
             address_to_client: Mapping from addresses to client IDs
             tx_map: Optional map of transaction IDs to transaction data for input lookup
+            config: Analysis switches (see AnalysisConfig)
             
         Returns:
             A CoinJoin instance with full attribution
@@ -322,12 +363,7 @@ class CoinJoin:
                 output_value += client_change.value
             delta = output_value - input_value
             
-            # Determine role - maker typically has a positive fee
-            role = "unknown"
-            if delta >= 0:
-                role = "maker"
-            else:
-                role = "taker"
+            role = role_from_delta(round(delta * 1e8), config)
             
             participants.append(CoinJoinParticipant(
                 inputs=client_inputs,
@@ -356,7 +392,7 @@ class CoinJoin:
             input_value = sum(inp.value for inp in client_inputs)
             output_value = candidate.value
             delta = output_value - input_value
-            role = "maker" if delta >= 0 else "taker"
+            role = role_from_delta(round(delta * 1e8), config)
 
             participants.append(CoinJoinParticipant(
                 inputs=client_inputs,

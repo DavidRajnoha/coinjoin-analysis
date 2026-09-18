@@ -13,6 +13,7 @@ project_root = str(Path(__file__).parent.parent.parent)
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
+from joinmarket.common.analysis_config import DEFAULT_CONFIG
 from joinmarket.common.coinjoin_model import CoinJoin, CoinJoinParticipant, TxInput, TxOutput
 # Import from blackbox modules for unified loading
 from joinmarket.blackbox.load_blockchain import load_blocks
@@ -267,13 +268,14 @@ def build_coinjoin_records(cj_txs, tx_map, address_to_client):
 #     return cj_objs
 
 
-def analyze_coinjoins(run_path, tx_map=None):
+def analyze_coinjoins(run_path, tx_map=None, config=DEFAULT_CONFIG):
     """
     Main analysis function that loads data and detects coinjoins.
     
     Args:
         run_path: Path to the run data directory
         tx_map: Optional map of transaction IDs to transaction data
+        config: Analysis switches (see AnalysisConfig)
         
     Returns:
         cj_data: Summary records of coinjoins (for backward compatibility)
@@ -310,7 +312,8 @@ def analyze_coinjoins(run_path, tx_map=None):
             tx=info['tx'], 
             block=info['block'], 
             address_to_client=address_to_client,
-            tx_map=tx_map
+            tx_map=tx_map,
+            config=config,
         )
         cj_objs.append(cj_obj)
     

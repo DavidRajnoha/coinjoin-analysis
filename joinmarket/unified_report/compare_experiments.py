@@ -21,8 +21,9 @@ def find_experiment_reports(data_dir: str) -> List[Dict[str, Any]]:
     """Find all unified_coinjoin_report.json files in experiment directories."""
     reports = []
     
-    # Search pattern: data_dir/**/report_unified/unified_coinjoin_report.json
-    pattern = os.path.join(data_dir, "**/report_unified/unified_coinjoin_report.json")
+    # Search pattern: data_dir/**/report_unified*/unified_coinjoin_report.json
+    # (report_unified for legacy analysis, report_unified_maker_sessions for the JM-NG mode)
+    pattern = os.path.join(data_dir, "**/report_unified*/unified_coinjoin_report.json")
     json_files = glob.glob(pattern, recursive=True)
     
     for json_file in sorted(json_files):
@@ -30,10 +31,12 @@ def find_experiment_reports(data_dir: str) -> List[Dict[str, Any]]:
             with open(json_file, 'r', encoding='utf-8') as f:
                 data = json.load(f)
             
-            # Extract experiment name from path - only the last directory (run name)
-            path_parts = Path(json_file).parts
-            # Get the directory containing the report_unified folder (should be the run name)
-            experiment_name = os.path.basename(os.path.dirname(os.path.dirname(json_file)))
+            # Experiment name: run directory, suffixed by analysis mode when it is not the legacy one
+            report_dir = os.path.dirname(json_file)
+            experiment_name = os.path.basename(os.path.dirname(report_dir))
+            mode = os.path.basename(report_dir).removeprefix("report_unified").lstrip("_")
+            if mode:
+                experiment_name = f"{experiment_name} [{mode}]"
             
             reports.append({
                 'name': experiment_name,
@@ -71,6 +74,8 @@ def extract_statistics(report_data: Dict[str, Any]) -> Dict[str, Any]:
     stats['chain_identification_specificity_nodes'] = chain_stats.get('chain_identification_specificity_nodes', 'N/A')
     stats['chain_identification_coverage_leaves'] = chain_stats.get('chain_identification_coverage_leaves', 'N/A')
     stats['chain_identification_specificity_leaves'] = chain_stats.get('chain_identification_specificity_leaves', 'N/A')
+    stats['chain_purity_specificity_chains'] = chain_stats.get('chain_purity_specificity_chains', 'N/A')
+    stats['chain_purity_specificity_txs'] = chain_stats.get('chain_purity_specificity_txs', 'N/A')
 
     # Taker CoinJoin output attribution metrics
     stats['taker_cj_output_coverage_bb'] = chain_stats.get('taker_cj_output_coverage_bb', 'N/A')
@@ -126,7 +131,9 @@ def generate_comparison_html(reports: List[Dict[str, Any]], output_file: str) ->
         ('correctly_mapped_identities', 'Correctly Mapped Identities Per-Transaction (%)'),
         ('total_whitebox_chains', 'Total Whitebox Chains'),
         ('chain_identification_coverage_nodes', 'Chain Identification Sensitivity - Nodes (%)'),
-        ('chain_identification_specificity_nodes', 'Chain Separation Specificity (%)'),
+        ('chain_identification_specificity_nodes', 'Root Identity Separation (%)'),
+        ('chain_purity_specificity_chains', 'Chain Purity Specificity - Chains (%)'),
+        ('chain_purity_specificity_txs', 'Chain Purity Specificity - Txs (%)'),
         ('chain_identification_coverage_leaves', 'Chain Identification Sensitivity - Leaves (%)'),
         ('taker_cj_output_coverage_bb', 'Taker CJ Output Coverage BB (%)'),
         ('taker_cj_output_coverage_wb', 'Taker CJ Output Coverage WB (%)'),

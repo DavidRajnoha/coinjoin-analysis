@@ -21,6 +21,11 @@ pip install -r requirements.txt
     1. [Extract coinjoin information from original raw files (```--action collect_docker```)](#ecj-extract)
     1. [Re-run analysis from already extracted coinjoins (```--action analyze_only```)](#ecj-rerun)
     1. [Example results](#ecj-examples)
+1. [Analyze JoinMarket emulations and mainnet data (```joinmarket/unified_analysis.py```)](#jm-analysis)
+    1. [Run the analysis](#jm-run)
+    1. [Analysis modes](#jm-modes)
+    1. [Caching](#jm-cache)
+    1. [Compare several runs or modes](#jm-compare)
 ---
 
 <a id="process-dumplings"></a>
@@ -170,5 +175,81 @@ If the analysis finishes successfully, the following files are created:
 ![image](https://github.com/user-attachments/assets/2e5406bc-b8f8-4725-8ff9-6484e805f682)
 
 ![image](https://github.com/user-attachments/assets/5325a4ae-468b-4b52-b58f-95d521c15b1c)
+
+---
+
+<a id="jm-analysis"></a>
+## Usage: Analyze JoinMarket coinjoins (```joinmarket/unified_analysis.py```)
+This usage scenario attributes inputs and outputs of JoinMarket coinjoins to participants, identifies
+the roles they played (taker, maker), links consecutive coinjoins of one tumbler run into chains, and
+compares the result against ground truth when it is available.
+
+Two analyses run over the same data:
+  * **blackbox** ... uses only what is visible on-chain. Participants are recovered by solving the
+    CoinJoin Sudoku (which subset of inputs paid for which outputs), roles follow from the resulting
+    fee balance: the taker pays, makers earn.
+  * **whitebox** ... uses the per-client address mapping produced by the emulator as ground truth.
+
+Running both produces a comparison of what the blackbox attribution got right, which is the point of
+the report. Mainnet data has no ground truth, so only the blackbox analysis applies there.
+
+<a id="jm-run"></a>
+### 1. Run the analysis
+The input is a run directory containing ```data/btc-node``` with the block files, and, for emulated
+runs, ```scenario.json``` plus the per-client wallet data:
+```
+python joinmarket/unified_analysis.py path_to_run
+```
+For mainnet data, where no client mapping exists, run the blackbox analysis alone:
+```
+python joinmarket/unified_analysis.py path_to_run --analysis blackbox
+```
+
+The report is written to ```path_to_run/report_unified/```:
+  * ```unified_coinjoin_report.html``` ... full report: per-transaction attribution, identified chains,
+    comparison metrics, and the transaction flow visualizations.
+  * ```unified_coinjoin_report.json``` ... the same metrics as data, for comparing runs.
+  * ```blackbox_visualization.html```, ```whitebox_visualization.html``` ... interactive flow graphs.
+
+Useful options:
+  * ```--analysis {both,blackbox,whitebox}``` ... which analysis to run (default: both).
+  * ```--out-dir``` ... write the report elsewhere.
+  * ```--no-cache``` ... recompute instead of reusing cached intermediate results.
+  * ```--collect-stats``` ... collect solver performance statistics.
+  * ```--show-block-timestamps``` ... add block timestamps to the per-transaction table.
+
+<a id="jm-modes"></a>
+### 2. Analysis modes
+Attribution behaviour is selected by flags, so several interpretations of the same data can be produced
+and compared. Each mode writes to its own report directory.
+
+  * *(no flags)* ... legacy attribution, written to ```report_unified```.
+  * ```--strict-links``` ... chain attribution only follows spends by tumbler participants, assigns a
+    parent coinjoin output to the participant whose identity matches the child, and propagates identity
+    only through the true owner of a change output. Written to ```report_unified_strict_links```.
+  * ```--maker-sessions``` ... accounts for JoinMarket-NG tumblers, which interleave maker sessions into
+    a tumbler run. Such a session runs with ```cjfee_abs = 0```, so the participant's balance is exactly
+    zero: it neither pays nor earns. These are labelled ```zero_fee_maker``` and treated as legs of the
+    tumbler when chains are built, which reconnects runs that would otherwise break at every session.
+    Implies ```--strict-links``` and is written to ```report_unified_maker_sessions```.
+    ```--zero-fee-tolerance N``` widens the zero balance to N satoshi;
+    ```--no-strict-links``` combines maker-session detection with legacy linking.
+
+<a id="jm-cache"></a>
+### 3. Caching
+Solving the Sudoku dominates the runtime, so intermediate results are cached in
+```path_to_run/analysis_cache/``` (override with ```--cache-dir```). The cache does not depend on the
+analysis mode: participant roles are re-derived on load, so switching modes only rebuilds the report and
+never re-solves. Use ```--no-cache``` after changing the analysis itself.
+
+<a id="jm-compare"></a>
+### 4. Compare several runs or modes
+To put the reports found below a directory side by side in one table:
+```
+python joinmarket/unified_report/compare_experiments.py path_to_experiments
+```
+This collects every ```report_unified*/unified_coinjoin_report.json``` below the given directory and
+writes ```experiment_comparison.html``` into it. Reports of different analysis modes of the same run are
+listed separately, so a mode can be compared against the baseline in the same table.
 
 ---

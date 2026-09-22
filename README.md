@@ -24,6 +24,7 @@ pip install -r requirements.txt
 1. [Analyze JoinMarket emulations and mainnet data (```joinmarket/unified_analysis.py```)](#jm-analysis)
     1. [Run the analysis](#jm-run)
     1. [Analysis modes](#jm-modes)
+    1. [Sudoku solver backends](#jm-solvers)
     1. [Caching](#jm-cache)
     1. [Compare several runs or modes](#jm-compare)
 ---
@@ -235,15 +236,40 @@ and compared. Each mode writes to its own report directory.
     ```--zero-fee-tolerance N``` widens the zero balance to N satoshi;
     ```--no-strict-links``` combines maker-session detection with legacy linking.
 
+<a id="jm-solvers"></a>
+### 3. Sudoku solver backends
+Recovering participants from a transaction is done by a swappable backend
+(```joinmarket/blackbox/coinjoin_sudoku/solvers.py```), selected with ```--solver```:
+
+  * ```matrix``` (default) ... the in-repo solver: computes all subset sums of the inputs by matrix
+    multiplication, filters them to economically viable (subset, change) pairs, then searches with a
+    taker-first DFS. Tuned with ```--search-strategy``` and ```--max-iterations```, which control the
+    binary search for the smallest maker fee bound that still yields solutions.
+  * ```ilp``` ... [joinmarket_analyzer](https://github.com/m0wer/joinmarket_analyzer) by m0wer: greedy
+    preprocessing followed by an integer linear program. An optional dependency, used through an
+    adapter that converts transactions into its format and its solutions back:
+    ```
+    pip install "joinmarket-analyzer @ git+https://github.com/m0wer/joinmarket_analyzer"
+    python joinmarket/unified_analysis.py path_to_run --solver ilp
+    ```
+    Tuned with ```--ilp-max-fee-rel``` (maker fee ceiling as a fraction of the equal output) and
+    ```--ilp-max-solutions```.
+
+A non-default solver writes to its own report directory and its own cache, so backends can be compared
+on the same data. On the reference emulated run, ```matrix``` recovered the correct taker in 39 of 40
+transactions against whitebox ground truth, ```ilp``` in 20 of 40, with the two agreeing on 19; the ILP
+backend also declines transactions with only two participants. Treat it as a comparison backend rather
+than a replacement.
+
 <a id="jm-cache"></a>
-### 3. Caching
+### 4. Caching
 Solving the Sudoku dominates the runtime, so intermediate results are cached in
 ```path_to_run/analysis_cache/``` (override with ```--cache-dir```). The cache does not depend on the
 analysis mode: participant roles are re-derived on load, so switching modes only rebuilds the report and
 never re-solves. Use ```--no-cache``` after changing the analysis itself.
 
 <a id="jm-compare"></a>
-### 4. Compare several runs or modes
+### 5. Compare several runs or modes
 To put the reports found below a directory side by side in one table:
 ```
 python joinmarket/unified_report/compare_experiments.py path_to_experiments

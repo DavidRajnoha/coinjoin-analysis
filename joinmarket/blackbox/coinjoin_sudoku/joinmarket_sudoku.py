@@ -55,6 +55,7 @@ SUBSET_INDICATORS_CACHE = {}
 # ─────────────────────────────────────────────────────────────────────────────
 # External dataclasses  (import paths unchanged)
 # ─────────────────────────────────────────────────────────────────────────────
+from joinmarket.blackbox.coinjoin_sudoku.solvers import get_solver
 from joinmarket.common.analysis_config import AnalysisConfig, DEFAULT_CONFIG
 from joinmarket.common.coinjoin_model import (
     CoinJoin, relabel_roles
@@ -437,8 +438,6 @@ def _search_aggressive_downscale(
 def solve_sudoku_for_coinjoin_set(
     coinjoins: List[Tuple[str, Dict[str, Any], Dict[str, Any]]],
     tx_map: Dict[str, Dict[str, Any]],
-    search_strategy: str = "start_high_always_search",
-    max_iterations: int = 5,
     statistics_collector: Optional[SudokuStatisticsCollector] = None,
     config: AnalysisConfig = DEFAULT_CONFIG,
 ) -> Tuple[List[CoinJoin], List[Dict[str, Any]]]:
@@ -449,12 +448,6 @@ def solve_sudoku_for_coinjoin_set(
     Args:
         coinjoins: List of (txid, tx, block) tuples
         tx_map: Map of all transactions
-        search_strategy: Search strategy for binary search:
-            - "start_middle": Start at 50k, search up/down (original, achieved 85% taker match)
-            - "start_high": Start at 600k, only search down
-            - "start_high_always_search": Start at 600k, search down even if fails (binary search)
-            - "aggressive_downscale": Aggressive downscale steps (512k→128k→32k→8k), then binary search
-        max_iterations: Maximum iterations for binary search
         statistics_collector: Optional statistics collector for performance analysis
         config: Analysis switches (see AnalysisConfig)
     """
@@ -476,8 +469,8 @@ def solve_sudoku_for_coinjoin_set(
             if statistics_collector and statistics_collector.enabled:
                 stats = statistics_collector.start_transaction(txid, tx, cj_outs, ch_outs)
                 if stats:
-                    stats.strategy = "matrix_multiplication"  # Default strategy
-                    stats.search_strategy = search_strategy
+                    stats.strategy = config.solver
+                    stats.search_strategy = config.search_strategy
 
             if len(tx['vin']) > MAX_INPUTS_SWEEP or len(tx['vout']) > MAX_OUTPUTS_SWEEP:
                 print(f'solve_sudoku_for_coinjoin_set: skipping {txid} (too big)')
@@ -486,10 +479,9 @@ def solve_sudoku_for_coinjoin_set(
                 solutions = None
             else:
                 print(f'solve_sudoku_for_coinjoin_set: solving {txid}')
-                solutions = analyze_and_solve_sudoku_with_optimal_gain(
-                    tx, tx_map,
-                    max_iterations=max_iterations,
-                    search_strategy=search_strategy
+                solutions = get_solver(config.solver)(
+                    tx, tx_map, config,
+                    statistics_collector=statistics_collector,
                 )
                 coinjoin_results.append({'txid': txid, 'solutions': solutions})
                 if not solutions:

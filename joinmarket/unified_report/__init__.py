@@ -20,6 +20,7 @@ from joinmarket.common.analysis_config import AnalysisConfig, DEFAULT_CONFIG
 from joinmarket.common.coinjoin_model import CoinJoin, generate_coinjoin_flow_vis_graph, relabel_coinjoin_roles
 from joinmarket.blackbox.parse_blockchain import detect_coinjoin_txs
 from joinmarket.blackbox.coinjoin_sudoku.joinmarket_sudoku import solve_sudoku_for_coinjoin_set
+from joinmarket.blackbox.coinjoin_sudoku.solvers import available_solvers
 from joinmarket.blackbox.coinjoin_sudoku.sudoku_statistics import SudokuStatisticsCollector
 from joinmarket.blackbox.load_blockchain import load_blocks
 from joinmarket.whitebox.attribute import analyze_coinjoins
@@ -65,22 +66,16 @@ def run_blackbox_analysis(tx_map: Dict[str, Any], statistics_collector: SudokuSt
     blackbox_coinjoins = detect_coinjoin_txs(tx_map)
     print(f"Found {len(blackbox_coinjoins)} potential CoinJoins using blackbox analysis")
 
-    print("Solving CoinJoin sudoku (blackbox attribution)...")
-    # Configure search strategy here:
-    # "start_middle" - Start at 50k, search up/down (ORIGINAL, achieved 85% taker match)
-    # "start_high" - Start at 600k, only search down
-    # "start_high_always_search" - Start at 600k, search down even if fails
-    SEARCH_STRATEGY = "aggressive_downscale"  # <-- CHANGE THIS TO TEST DIFFERENT STRATEGIES
-    MAX_ITERATIONS = 5
-    print(f"Using search strategy: {SEARCH_STRATEGY}, max_iterations: {MAX_ITERATIONS}")
+    print(f"Solving CoinJoin sudoku (blackbox attribution) with the {config.solver!r} solver...")
 
     if statistics_collector and statistics_collector.enabled:
         print("Statistics collection is ENABLED")
+        if config.solver != "matrix":
+            print(f"  note: per-solve statistics are only recorded by the 'matrix' solver, "
+                  f"not '{config.solver}'")
 
     blackbox_cj_objs, blackbox_results = solve_sudoku_for_coinjoin_set(
         blackbox_coinjoins, tx_map,
-        search_strategy=SEARCH_STRATEGY,
-        max_iterations=MAX_ITERATIONS,
         statistics_collector=statistics_collector,
         config=config,
     )
@@ -208,6 +203,20 @@ def main():
                              "two modes never mix.")
     parser.add_argument("--zero-fee-tolerance", type=int, default=0,
                         help="Max delta (sat) still treated as a zero-fee maker (with --maker-sessions)")
+    parser.add_argument("--solver", choices=available_solvers(), default="matrix",
+                        help="Sudoku backend: 'matrix' (in-repo subset-sum/DFS) or 'ilp' "
+                             "(joinmarket_analyzer, optional dependency). Non-default solvers "
+                             "get their own report directory and cache.")
+    parser.add_argument("--search-strategy", default="aggressive_downscale",
+                        choices=["start_middle", "start_high", "start_high_always_search",
+                                 "aggressive_downscale"],
+                        help="How the matrix solver searches for the smallest maker_gain_max")
+    parser.add_argument("--max-iterations", type=int, default=5,
+                        help="Binary search iterations for the matrix solver")
+    parser.add_argument("--ilp-max-fee-rel", type=float, default=0.05,
+                        help="ILP solver: maker fee ceiling as a fraction of the equal output")
+    parser.add_argument("--ilp-max-solutions", type=int, default=100,
+                        help="ILP solver: cap on enumerated solutions per transaction")
     parser.add_argument("--strict-links", dest="strict_links", action="store_true", default=None,
                         help="Chain attribution follows only tumbler spends and identity-matched outputs "
                              "(default: on with --maker-sessions, off otherwise)")
@@ -216,7 +225,11 @@ def main():
     args = parser.parse_args()
 
     config = AnalysisConfig(maker_sessions=args.maker_sessions, zero_fee_tolerance=args.zero_fee_tolerance,
-                            strict_tumbler_links=args.strict_links)
+                            strict_tumbler_links=args.strict_links,
+                            solver=args.solver, search_strategy=args.search_strategy,
+                            max_iterations=args.max_iterations,
+                            ilp_max_fee_rel=args.ilp_max_fee_rel,
+                            ilp_max_solutions=args.ilp_max_solutions)
     print(f"Analysis mode: {config.label}")
 
     # Create output directory; each mode gets its own so pickle caches never mix
@@ -237,9 +250,11 @@ def main():
     
     # Cache is shared by all analysis modes of this run. Falls back to pickles an older
     # version left next to the legacy report so they need not be recomputed.
-    cache_dir = args.cache_dir or os.path.join(args.data_dir, "analysis_cache")
+    # Solvers recover different participants, so each keeps its own cache.
+    cache_name = "analysis_cache" if config.solver == "matrix" else f"analysis_cache_{config.solver}"
+    cache_dir = args.cache_dir or os.path.join(args.data_dir, cache_name)
     os.makedirs(cache_dir, exist_ok=True)
-    legacy_cache_dir = os.path.join(args.data_dir, "report_unified")
+    legacy_cache_dir = os.path.join(args.data_dir, "report_unified") if config.solver == "matrix" else cache_dir
 
     def cache_source(*files):
         for d in (cache_dir, legacy_cache_dir):

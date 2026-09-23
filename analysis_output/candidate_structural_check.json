@@ -1,0 +1,2039 @@
+{
+  "seed": 0,
+  "rule": "n>=3 equal outputs, n or n-1 change, inputs>=n",
+  "candidates": {
+    "sampled": 100,
+    "fetched": 100,
+    "conforming": [
+      {
+        "status": "CONFORMS",
+        "n": 8,
+        "mix_value": 15085292,
+        "equal_outputs": 8,
+        "change_outputs": 8,
+        "inputs": 17,
+        "outputs": 16,
+        "txid": "dea1f8dd7026e3ea863a44c636602cf8d5150e7a04d19a01a3b5b252d9ac7382"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 5,
+        "mix_value": 50066707,
+        "equal_outputs": 5,
+        "change_outputs": 4,
+        "inputs": 9,
+        "outputs": 9,
+        "txid": "c875d086f4edb6fd575126746bd19a5d33d99812ab812bcbf9e228e8948aa24d"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 6,
+        "mix_value": 315918540,
+        "equal_outputs": 6,
+        "change_outputs": 6,
+        "inputs": 60,
+        "outputs": 12,
+        "txid": "ea8668b084c6f01386fd08cdc0ea134a1c9640456fec5fc645d736153296a884"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 5,
+        "mix_value": 12222526,
+        "equal_outputs": 5,
+        "change_outputs": 5,
+        "inputs": 11,
+        "outputs": 10,
+        "txid": "70c6a66bc378c2607f33d90eaf0ef6e129936aa49cd4a50c8a02d709ff7161d8"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 8,
+        "mix_value": 23001879,
+        "equal_outputs": 8,
+        "change_outputs": 8,
+        "inputs": 12,
+        "outputs": 16,
+        "txid": "0a9a9965b51bbf797a1359cc9d2dfeb059aa93541623f87a42c67168a988a2d3"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 3,
+        "mix_value": 6493000000,
+        "equal_outputs": 3,
+        "change_outputs": 3,
+        "inputs": 13,
+        "outputs": 6,
+        "txid": "452c2e3cdbe1d809833b93267ee5cf2abf40906bab3e4127e7d021959a4de3bc"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 7,
+        "mix_value": 839638652,
+        "equal_outputs": 7,
+        "change_outputs": 7,
+        "inputs": 19,
+        "outputs": 14,
+        "txid": "fe54eb3a4c2873b7283ed4a6b39393706e0c3d656119c7c24149fdf39f897762"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 6,
+        "mix_value": 111795624,
+        "equal_outputs": 6,
+        "change_outputs": 5,
+        "inputs": 11,
+        "outputs": 11,
+        "txid": "890831e7dba1766373a6ebfe7256a8ef379f38fd9d362f889c96d962510544dc"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 12,
+        "mix_value": 2091809,
+        "equal_outputs": 12,
+        "change_outputs": 11,
+        "inputs": 17,
+        "outputs": 23,
+        "txid": "827cfb0100f47e5c4b16e4836c737f2068b8370f4d722d49169f2cb18d21c3f2"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 5,
+        "mix_value": 372988551,
+        "equal_outputs": 5,
+        "change_outputs": 5,
+        "inputs": 10,
+        "outputs": 10,
+        "txid": "6c80a97595f006533f42f50f0d5f2130aa5a82b94ac9c5b2a3db50841e253389"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 9,
+        "mix_value": 1918392,
+        "equal_outputs": 9,
+        "change_outputs": 8,
+        "inputs": 22,
+        "outputs": 17,
+        "txid": "f254db0ab1d8d76ab1f33e80a179cf4004380e6559033fc5c629a6cbb636810e"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 8,
+        "mix_value": 800000000,
+        "equal_outputs": 8,
+        "change_outputs": 8,
+        "inputs": 12,
+        "outputs": 16,
+        "txid": "ce7ecab04f30dec2b2dffeeb84fbc5deb5518bd0acb5e4b040dc151bfef1cf7b"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 5,
+        "mix_value": 12198030,
+        "equal_outputs": 5,
+        "change_outputs": 5,
+        "inputs": 7,
+        "outputs": 10,
+        "txid": "dad51a8529b8955226cc155ca1b9a14e9a1b62ba4be7044dbb4368404bc910d3"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 6,
+        "mix_value": 38349938,
+        "equal_outputs": 6,
+        "change_outputs": 6,
+        "inputs": 39,
+        "outputs": 12,
+        "txid": "5150eba60aabdf4256c19468d26fba494d060361a79b07a5cdad64d12bc1e1b8"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 4,
+        "mix_value": 1040265546,
+        "equal_outputs": 4,
+        "change_outputs": 4,
+        "inputs": 14,
+        "outputs": 8,
+        "txid": "feffc3563237d4ac20738460d9f7d114f5703c9c32bd12387db88626ba4d000b"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 5,
+        "mix_value": 142685798,
+        "equal_outputs": 5,
+        "change_outputs": 5,
+        "inputs": 15,
+        "outputs": 10,
+        "txid": "7fc85077dfe4b44a8f0df1636117cf94d3e9ae3288ba5561a6384b2c6f74f09d"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 9,
+        "mix_value": 26293596,
+        "equal_outputs": 9,
+        "change_outputs": 8,
+        "inputs": 19,
+        "outputs": 17,
+        "txid": "5f9e07545a0e0e4b5bd5b5d3c175309ff76733c9e6c18e6c130f327854102206"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 3,
+        "mix_value": 75983903,
+        "equal_outputs": 3,
+        "change_outputs": 2,
+        "inputs": 16,
+        "outputs": 5,
+        "txid": "9b63bc59429677812815a76c1ca087e305d3ad79aa76dfeeed7189d3bbe97c76"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 11,
+        "mix_value": 363999849,
+        "equal_outputs": 11,
+        "change_outputs": 11,
+        "inputs": 87,
+        "outputs": 22,
+        "txid": "eaf14afc10658a5c9fdb280f4f1253b5931d8518e425bec6c83b8a8131ab6587"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 10,
+        "mix_value": 42086491,
+        "equal_outputs": 10,
+        "change_outputs": 10,
+        "inputs": 23,
+        "outputs": 20,
+        "txid": "ef3f7ff7e76f59072266d5c74d1a18754779a4915f5df2457339d3c3d5ee3312"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 3,
+        "mix_value": 831055000,
+        "equal_outputs": 3,
+        "change_outputs": 3,
+        "inputs": 9,
+        "outputs": 6,
+        "txid": "3a0da6875c091182974b615371eb6546b80cbbe258e222902501156ab0808495"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 10,
+        "mix_value": 3492000,
+        "equal_outputs": 10,
+        "change_outputs": 10,
+        "inputs": 31,
+        "outputs": 20,
+        "txid": "87647648ce3073042763bab706dc236a46301f4dcc3d9fc0f7d4d6dc222c02e5"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 6,
+        "mix_value": 354422807,
+        "equal_outputs": 6,
+        "change_outputs": 6,
+        "inputs": 10,
+        "outputs": 12,
+        "txid": "24f70cbaef4b4a33d76d19a22241c0d157f577e40e9d53df035776b4cb563254"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 7,
+        "mix_value": 188216866,
+        "equal_outputs": 7,
+        "change_outputs": 7,
+        "inputs": 14,
+        "outputs": 14,
+        "txid": "4b896573a56fbcb5034b0c466a988bbc41f6dcb45b6ba492ceef39f5485757fa"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 10,
+        "mix_value": 74959193,
+        "equal_outputs": 10,
+        "change_outputs": 9,
+        "inputs": 28,
+        "outputs": 19,
+        "txid": "2519b1b299048155b74145bfc4c5423d7bdc03dc6cbe0e2795bbdede71dbbd17"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 4,
+        "mix_value": 1238950696,
+        "equal_outputs": 4,
+        "change_outputs": 4,
+        "inputs": 17,
+        "outputs": 8,
+        "txid": "18792bdf35706e54fecf2eade3e3d19a0f3a4f89d9508d22bf37bb3ed1411d34"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 5,
+        "mix_value": 370000000,
+        "equal_outputs": 5,
+        "change_outputs": 5,
+        "inputs": 8,
+        "outputs": 10,
+        "txid": "a503a42bd5ee693fbdbc6b844a33a9ec2b2eb8bb80bf9e63b7374955de205074"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 4,
+        "mix_value": 2520852228,
+        "equal_outputs": 4,
+        "change_outputs": 4,
+        "inputs": 52,
+        "outputs": 8,
+        "txid": "d2c7bc2cf31bf695e47de8694f39db89ba5963b91bceabbb6f1121f04c5e65bd"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 6,
+        "mix_value": 209759489,
+        "equal_outputs": 6,
+        "change_outputs": 5,
+        "inputs": 13,
+        "outputs": 11,
+        "txid": "42d847083a0c8cdf6845083b90cead3e60db0a40da05d9664e0fcb3f4d1e10f0"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 9,
+        "mix_value": 164200000,
+        "equal_outputs": 9,
+        "change_outputs": 9,
+        "inputs": 23,
+        "outputs": 18,
+        "txid": "efced09038d26f78faa9f5129faeb5d02341778cf3dac6c9e1cda2437341a017"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 9,
+        "mix_value": 356431671,
+        "equal_outputs": 9,
+        "change_outputs": 8,
+        "inputs": 20,
+        "outputs": 17,
+        "txid": "8e7e5f815118b35c9a97c8556de4d56683a0237f8ef000958dae19daf33c0b5e"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 4,
+        "mix_value": 80229994,
+        "equal_outputs": 4,
+        "change_outputs": 4,
+        "inputs": 5,
+        "outputs": 8,
+        "txid": "bae968411f42dbb7943bc7ab0f6a6f1c6845d5b74ef9f37f6dbfa8407bf84aea"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 10,
+        "mix_value": 480000000,
+        "equal_outputs": 10,
+        "change_outputs": 10,
+        "inputs": 15,
+        "outputs": 20,
+        "txid": "d5c4bde46bda2ee3ccae55e224346d577eb633ea1ff84b78c3f226163837b29b"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 9,
+        "mix_value": 50000000,
+        "equal_outputs": 9,
+        "change_outputs": 9,
+        "inputs": 25,
+        "outputs": 18,
+        "txid": "a09f4d01ab2f59950d451b99e450e34126594aefe666cda14c12b9176e5d259d"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 6,
+        "mix_value": 1073973384,
+        "equal_outputs": 6,
+        "change_outputs": 5,
+        "inputs": 16,
+        "outputs": 11,
+        "txid": "edb9e2b728729b628a749f4d0c9c9d633bb59f8f0cf53d5f09fdc1aebe787a24"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 6,
+        "mix_value": 500000000,
+        "equal_outputs": 6,
+        "change_outputs": 6,
+        "inputs": 30,
+        "outputs": 12,
+        "txid": "272f5d318b6664a839d8c9d5f522c9e0435119e41074290f9d481aee15afc2bf"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 10,
+        "mix_value": 25297911,
+        "equal_outputs": 10,
+        "change_outputs": 9,
+        "inputs": 31,
+        "outputs": 19,
+        "txid": "530a97a4f99fc4372cae7a4ae8d03051a545bebfc5733870fd46a2ba0593a8ec"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 11,
+        "mix_value": 69808290,
+        "equal_outputs": 11,
+        "change_outputs": 10,
+        "inputs": 26,
+        "outputs": 21,
+        "txid": "199ca7b5350683c211f6d82109c6f1a5a656f36e3824376b57f792ca36170d7e"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 6,
+        "mix_value": 34686000,
+        "equal_outputs": 6,
+        "change_outputs": 6,
+        "inputs": 14,
+        "outputs": 12,
+        "txid": "c13f6c2988f0ec274a493cbe22cf1b3812553e00342e7c5dcc273f06c167dbdb"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 9,
+        "mix_value": 324847596,
+        "equal_outputs": 9,
+        "change_outputs": 8,
+        "inputs": 84,
+        "outputs": 17,
+        "txid": "13417b3490f3d6f2d488f30baa7ed418204529974f7ec4be7b7fee85866fe2df"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 7,
+        "mix_value": 922482619,
+        "equal_outputs": 7,
+        "change_outputs": 7,
+        "inputs": 10,
+        "outputs": 14,
+        "txid": "e040ed88fe4a0de6a00a62c46ccb062c61f7546da34e47f07f98bd4660d9a6f1"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 3,
+        "mix_value": 1471000000,
+        "equal_outputs": 3,
+        "change_outputs": 3,
+        "inputs": 7,
+        "outputs": 6,
+        "txid": "b5141a15b8b85fbfa6615a2a230585b7e6b3beae50df47497606c58b90da3b22"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 8,
+        "mix_value": 10758634,
+        "equal_outputs": 8,
+        "change_outputs": 8,
+        "inputs": 13,
+        "outputs": 16,
+        "txid": "5867a075a301b8147f5912176838ef6828fde773f5a8bdebbb11ca3849d19d98"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 6,
+        "mix_value": 598112785,
+        "equal_outputs": 6,
+        "change_outputs": 6,
+        "inputs": 21,
+        "outputs": 12,
+        "txid": "7eb0bc2edd243cf7a797ecf88f6d03b2745842ddce6754c54e53d2511e331290"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 6,
+        "mix_value": 410783000,
+        "equal_outputs": 6,
+        "change_outputs": 6,
+        "inputs": 11,
+        "outputs": 12,
+        "txid": "9580660461ce67eb9e012ef5d92f71781690271bc18c388096180539fc68d009"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 6,
+        "mix_value": 88185075,
+        "equal_outputs": 6,
+        "change_outputs": 6,
+        "inputs": 8,
+        "outputs": 12,
+        "txid": "5ebe7ed1f8b58c943ae3f2dd00ed2a3b8e82ffb42456cb26c39b15046afb048b"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 9,
+        "mix_value": 10178418,
+        "equal_outputs": 9,
+        "change_outputs": 8,
+        "inputs": 30,
+        "outputs": 17,
+        "txid": "54fc005dce49d1b954ab33c6673259a948740dc0f97eca8d31028644ccc7326c"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 8,
+        "mix_value": 60536568,
+        "equal_outputs": 8,
+        "change_outputs": 8,
+        "inputs": 13,
+        "outputs": 16,
+        "txid": "a311fd7ba53b7385618a1aaaa11ae9e8004f54e7ef2764876ffa0c3904ea9c8a"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 4,
+        "mix_value": 900000000,
+        "equal_outputs": 4,
+        "change_outputs": 4,
+        "inputs": 9,
+        "outputs": 8,
+        "txid": "aaa0a4449f0d05265e34f05fc0d54ecef3811a91005ede7637c66fa00abcc594"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 5,
+        "mix_value": 202134960,
+        "equal_outputs": 5,
+        "change_outputs": 5,
+        "inputs": 11,
+        "outputs": 10,
+        "txid": "f0d8becc0a7ec1240d27f4d387bde958d23ac5277e71b3fd4f29d467007a427c"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 7,
+        "mix_value": 433413318,
+        "equal_outputs": 7,
+        "change_outputs": 7,
+        "inputs": 10,
+        "outputs": 14,
+        "txid": "36627189590f68fc2513ce0378ae19d23a59802eac23cfef340beaaff1da2a40"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 6,
+        "mix_value": 96302515,
+        "equal_outputs": 6,
+        "change_outputs": 6,
+        "inputs": 9,
+        "outputs": 12,
+        "txid": "fead648031a121295b63fab8d35ee0b5f24d11a25e1536a2a3943df5fae8a81b"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 3,
+        "mix_value": 200000000,
+        "equal_outputs": 3,
+        "change_outputs": 3,
+        "inputs": 14,
+        "outputs": 6,
+        "txid": "939a44451ac03ef3fea104f71cc50c38cf49ceae24652eaeb0940662aaf86683"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 6,
+        "mix_value": 258550000,
+        "equal_outputs": 6,
+        "change_outputs": 6,
+        "inputs": 7,
+        "outputs": 12,
+        "txid": "7fdd4a2ee70b62fb858056d48f49bde501fd021652c4987571a5792381373ae3"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 6,
+        "mix_value": 84705975,
+        "equal_outputs": 6,
+        "change_outputs": 5,
+        "inputs": 11,
+        "outputs": 11,
+        "txid": "7714d96ea264285bcb628262ec800786cb8c069ffe76f84df04ffb0b3b2fb820"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 6,
+        "mix_value": 600000000,
+        "equal_outputs": 6,
+        "change_outputs": 6,
+        "inputs": 48,
+        "outputs": 12,
+        "txid": "e45d6e3785b4e88081aea7bcc0753a097d854b3be8f07e6c66603a06aa2937ae"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 10,
+        "mix_value": 452099993,
+        "equal_outputs": 10,
+        "change_outputs": 10,
+        "inputs": 39,
+        "outputs": 20,
+        "txid": "8ba950f97228cb634decdd08ed71436f4f8cdd4b6c0aff94098c80e05dcd8639"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 6,
+        "mix_value": 52774866,
+        "equal_outputs": 6,
+        "change_outputs": 5,
+        "inputs": 10,
+        "outputs": 11,
+        "txid": "45944f6f56dc813c6bcd777abddd59f78f38cf32fd4938d9b1255c989f5d514e"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 6,
+        "mix_value": 230388429,
+        "equal_outputs": 6,
+        "change_outputs": 6,
+        "inputs": 14,
+        "outputs": 12,
+        "txid": "103f565b4046e0a7be54dedba420aee3d27232a0d07af56d5a8266820b5eca3d"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 9,
+        "mix_value": 856412485,
+        "equal_outputs": 9,
+        "change_outputs": 8,
+        "inputs": 13,
+        "outputs": 17,
+        "txid": "d430e5f0370cf18fc8a729105e7bcdd532bcb3c3569b341bee19a6fdac1c535c"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 6,
+        "mix_value": 335101196,
+        "equal_outputs": 6,
+        "change_outputs": 6,
+        "inputs": 49,
+        "outputs": 12,
+        "txid": "f2645acfb8374b5c554671d5d5d16538fb0da3a915ac105fcd1d9c53a12d2af6"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 5,
+        "mix_value": 175602324,
+        "equal_outputs": 5,
+        "change_outputs": 5,
+        "inputs": 19,
+        "outputs": 10,
+        "txid": "92ac5f77cc773341ca3275e3acc115a1a322f8ad21f9e4fbc29a5f8ddd15a58a"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 7,
+        "mix_value": 191504344,
+        "equal_outputs": 7,
+        "change_outputs": 6,
+        "inputs": 11,
+        "outputs": 13,
+        "txid": "0393e0404596696997f36075762e7a2f180420cd55d01634c69001921671bcd0"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 6,
+        "mix_value": 10754573,
+        "equal_outputs": 6,
+        "change_outputs": 6,
+        "inputs": 8,
+        "outputs": 12,
+        "txid": "be9e8cf5284f538caf1e6e7b9a90390a2f428f14cc2d5ed5d8ef753089cde8ca"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 6,
+        "mix_value": 850131235,
+        "equal_outputs": 6,
+        "change_outputs": 5,
+        "inputs": 96,
+        "outputs": 11,
+        "txid": "dd6ef1dd05e07f59621f45d351b654dd53aa8f9520b037e5ccb27fd76a0da611"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 8,
+        "mix_value": 1339674194,
+        "equal_outputs": 8,
+        "change_outputs": 7,
+        "inputs": 23,
+        "outputs": 15,
+        "txid": "6a97744a377519c25b95575814f176a45a97147f8bd39c0538b7c42d40264619"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 7,
+        "mix_value": 409547003,
+        "equal_outputs": 7,
+        "change_outputs": 6,
+        "inputs": 19,
+        "outputs": 13,
+        "txid": "bc1914afc3928eb216191bb1b3916a3afcdb610d494d7d17f5227c967201a2f1"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 5,
+        "mix_value": 38234650,
+        "equal_outputs": 5,
+        "change_outputs": 5,
+        "inputs": 15,
+        "outputs": 10,
+        "txid": "d97d49777f3af4ed185b6df6e155b7237c8452855bb23fd1e0c3a1934d9371d0"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 6,
+        "mix_value": 1641621110,
+        "equal_outputs": 6,
+        "change_outputs": 6,
+        "inputs": 36,
+        "outputs": 12,
+        "txid": "cede2507e2c9caae9647afb8b3946826f0a0389a10856bb076164a66eb9dabeb"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 7,
+        "mix_value": 483992980,
+        "equal_outputs": 7,
+        "change_outputs": 7,
+        "inputs": 13,
+        "outputs": 14,
+        "txid": "b12e6177ae7369bb8f544f61f7be437eb5229c8a3a432d85c17964694d45fd56"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 8,
+        "mix_value": 11040653,
+        "equal_outputs": 8,
+        "change_outputs": 7,
+        "inputs": 11,
+        "outputs": 15,
+        "txid": "a6fb56fa114103b8187a82714a0b381fe52a076ab5da4b93fef8aeeb12d34ad7"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 7,
+        "mix_value": 901112756,
+        "equal_outputs": 7,
+        "change_outputs": 7,
+        "inputs": 9,
+        "outputs": 14,
+        "txid": "003443bb6dfb207b7e961193212ebf04ba4cb7acd3a9575185fd1347244b9a60"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 6,
+        "mix_value": 390779191,
+        "equal_outputs": 6,
+        "change_outputs": 5,
+        "inputs": 13,
+        "outputs": 11,
+        "txid": "a34f8e8296060c97fe6e0ba6b72ca2c78b09baa32f4a9cd650d841de9e1f8ffb"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 6,
+        "mix_value": 843163103,
+        "equal_outputs": 6,
+        "change_outputs": 5,
+        "inputs": 15,
+        "outputs": 11,
+        "txid": "8475b1d194f97321fd16d7cd30fc252348fb6cc9d6b973373e0444ab70f808c6"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 7,
+        "mix_value": 99000000,
+        "equal_outputs": 7,
+        "change_outputs": 7,
+        "inputs": 7,
+        "outputs": 14,
+        "txid": "da63027395d12db749698f3dd7e2b6cfd7f1877142cb00dcca927cb893cebed0"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 8,
+        "mix_value": 3742309,
+        "equal_outputs": 8,
+        "change_outputs": 7,
+        "inputs": 16,
+        "outputs": 15,
+        "txid": "e4e0676401f736720f717e04f091afb308b5e02908965690949d0afc7830f736"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 6,
+        "mix_value": 110488965,
+        "equal_outputs": 6,
+        "change_outputs": 6,
+        "inputs": 9,
+        "outputs": 12,
+        "txid": "5935436721274c4036e72981e1736528ea23649ac6649b558df324afee3a6c1c"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 4,
+        "mix_value": 413290553,
+        "equal_outputs": 4,
+        "change_outputs": 4,
+        "inputs": 5,
+        "outputs": 8,
+        "txid": "40ee11a0a351914a6c67b207da487f60c2be129acbb909957a2b2b3284b8ddc6"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 9,
+        "mix_value": 100000000,
+        "equal_outputs": 9,
+        "change_outputs": 9,
+        "inputs": 30,
+        "outputs": 18,
+        "txid": "c1682301bb771b389744db57eb37d66a65452fd5e7f41a30414c50c2e980b3a7"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 6,
+        "mix_value": 436223319,
+        "equal_outputs": 6,
+        "change_outputs": 5,
+        "inputs": 13,
+        "outputs": 11,
+        "txid": "57377ffb2b5d2c62a3ad58a3ac7eb4e2280ac16b95e21d1ba04137a0897c6880"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 7,
+        "mix_value": 218200000,
+        "equal_outputs": 7,
+        "change_outputs": 7,
+        "inputs": 15,
+        "outputs": 14,
+        "txid": "ba6f56758275f74fe5614820d2f3ee37827869c65000a2f23d2f882a9f48669e"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 11,
+        "mix_value": 7485863,
+        "equal_outputs": 11,
+        "change_outputs": 11,
+        "inputs": 19,
+        "outputs": 22,
+        "txid": "e5b1ef70c5d568fc78ae069051125db74d08aba8d576d77fe70aba5aeb462f48"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 4,
+        "mix_value": 639322294,
+        "equal_outputs": 4,
+        "change_outputs": 3,
+        "inputs": 10,
+        "outputs": 7,
+        "txid": "10720152bb9d84f1025fe2c0eeaaaa096c1de39cb5eab6ad09a720fc9c1a27e4"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 11,
+        "mix_value": 15041943,
+        "equal_outputs": 11,
+        "change_outputs": 11,
+        "inputs": 22,
+        "outputs": 22,
+        "txid": "32d7ba7fe628b86bc9578b7b62c0e6b39644509715e7c7d3a21880ef4af3776e"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 10,
+        "mix_value": 301617694,
+        "equal_outputs": 10,
+        "change_outputs": 10,
+        "inputs": 12,
+        "outputs": 20,
+        "txid": "f1ef0723716dd188da5ce31b1db0208e7c6c9b86850a6f11b4588f7c8e2eeca6"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 3,
+        "mix_value": 301507659,
+        "equal_outputs": 3,
+        "change_outputs": 3,
+        "inputs": 6,
+        "outputs": 6,
+        "txid": "979c33f6a0582afa41ca443d15256794e2c335eb98343a078ed42cefb81421cb"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 5,
+        "mix_value": 71924633,
+        "equal_outputs": 5,
+        "change_outputs": 4,
+        "inputs": 17,
+        "outputs": 9,
+        "txid": "3b2d1faed2fe3f00d27c826878739d775e5ad775dd022667144031a4e1da3936"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 6,
+        "mix_value": 510801317,
+        "equal_outputs": 6,
+        "change_outputs": 6,
+        "inputs": 13,
+        "outputs": 12,
+        "txid": "3f58b85915c1c606077d42f153876cf6910c0d01dba2423593f677bb141286a7"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 9,
+        "mix_value": 220119262,
+        "equal_outputs": 9,
+        "change_outputs": 9,
+        "inputs": 26,
+        "outputs": 18,
+        "txid": "d3dba93f18e5438716384fe518b0e130903a1ec0fb488f7fd75ec9c1a7d3b231"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 9,
+        "mix_value": 64631210,
+        "equal_outputs": 9,
+        "change_outputs": 8,
+        "inputs": 17,
+        "outputs": 17,
+        "txid": "feecbee08d34dcbbdaf04fa8eede95c969c10bf5872aa7215bcb4f75a6aa6070"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 7,
+        "mix_value": 18663457,
+        "equal_outputs": 7,
+        "change_outputs": 7,
+        "inputs": 13,
+        "outputs": 14,
+        "txid": "25fcb52e756c7a7e7f0d27606615c8ae367a2de92c6fde2ce0da14be2bc23576"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 7,
+        "mix_value": 500000000,
+        "equal_outputs": 7,
+        "change_outputs": 7,
+        "inputs": 57,
+        "outputs": 14,
+        "txid": "913ae41008dbab78b08b1e559a0990680ce8efb51264f1b1fc55a75218d33aa9"
+      }
+    ],
+    "non_conforming": [
+      {
+        "status": "NON_CONFORMING",
+        "inputs": 12,
+        "outputs": 20,
+        "largest_equal_group": 11,
+        "distribution": {
+          "1": 9,
+          "11": 1
+        },
+        "txid": "66646fd828bcd892f52d0a9c2543504f44a857fe1c5d40ab989a206d3c47c0d9"
+      },
+      {
+        "status": "NON_CONFORMING",
+        "inputs": 262,
+        "outputs": 2,
+        "largest_equal_group": 1,
+        "distribution": {
+          "1": 2
+        },
+        "txid": "c7ec20f90755e724804e9800f6152aff37227e6420bc91bc1f6b75c0728d1b77"
+      },
+      {
+        "status": "NON_CONFORMING",
+        "inputs": 4,
+        "outputs": 1,
+        "largest_equal_group": 1,
+        "distribution": {
+          "1": 1
+        },
+        "txid": "ecce9de3b63afebe67021e5dc1e26064a453adb62bae0000560eb5e9c8a8ac56"
+      },
+      {
+        "status": "NON_CONFORMING",
+        "inputs": 585,
+        "outputs": 1,
+        "largest_equal_group": 1,
+        "distribution": {
+          "1": 1
+        },
+        "txid": "1a4634a15b05834b6e42a5552e26b1f36355c5dcadfd9789916593f92643005d"
+      },
+      {
+        "status": "NON_CONFORMING",
+        "inputs": 13,
+        "outputs": 1,
+        "largest_equal_group": 1,
+        "distribution": {
+          "1": 1
+        },
+        "txid": "748f56b05d1227d94d141af5c1bee03de0cf569456836ac833e9e8619ff2c3ef"
+      },
+      {
+        "status": "NON_CONFORMING",
+        "inputs": 9,
+        "outputs": 1,
+        "largest_equal_group": 1,
+        "distribution": {
+          "1": 1
+        },
+        "txid": "f19373eff14e170586d3d5c920fa48baebc3db9d585e004c2b4ad948e5f96077"
+      },
+      {
+        "status": "NON_CONFORMING",
+        "inputs": 417,
+        "outputs": 1,
+        "largest_equal_group": 1,
+        "distribution": {
+          "1": 1
+        },
+        "txid": "180e51010e0c3a14d25fdec051071ee1a54f6992ff21f41fe903deb9fd83efc0"
+      },
+      {
+        "status": "NON_CONFORMING",
+        "inputs": 131,
+        "outputs": 1,
+        "largest_equal_group": 1,
+        "distribution": {
+          "1": 1
+        },
+        "txid": "d3d32c3081d591ac5b3dcb639d91fd779c1f21044bc24bb45349b11e218a1013"
+      }
+    ]
+  },
+  "controls": {
+    "sampled": 100,
+    "fetched": 100,
+    "conforming": [
+      {
+        "status": "CONFORMS",
+        "n": 3,
+        "mix_value": 856523799,
+        "equal_outputs": 3,
+        "change_outputs": 3,
+        "inputs": 3,
+        "outputs": 6,
+        "txid": "7de38d3e7957510f4ab5375dfa4a595717822d53e74bff2514d4929d8d8d994a"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 7,
+        "mix_value": 29210014,
+        "equal_outputs": 7,
+        "change_outputs": 7,
+        "inputs": 10,
+        "outputs": 14,
+        "txid": "603e20c05afba40a0cea732ee202c3d3902e4c1fff20c977c8fd802442103b52"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 5,
+        "mix_value": 3981858,
+        "equal_outputs": 5,
+        "change_outputs": 4,
+        "inputs": 8,
+        "outputs": 9,
+        "txid": "0e4f4980a574847d7aecab3770bc706bb19124534fb7db46a147a470d36ccd3e"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 3,
+        "mix_value": 50000000,
+        "equal_outputs": 3,
+        "change_outputs": 3,
+        "inputs": 11,
+        "outputs": 6,
+        "txid": "82ed26042af71d9a52683a3328aeaa6130b135940482742922c497b3be77eb24"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 5,
+        "mix_value": 300110426,
+        "equal_outputs": 5,
+        "change_outputs": 4,
+        "inputs": 8,
+        "outputs": 9,
+        "txid": "6d2798abffc7a8712071b26a8009688510b6f4382eb770e79c53c1cabadfc23f"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 5,
+        "mix_value": 1347266,
+        "equal_outputs": 5,
+        "change_outputs": 4,
+        "inputs": 7,
+        "outputs": 9,
+        "txid": "5c28580cd5ec690d43ede0b30b32f77a07f2760b711a040ee35822a2457559a1"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 10,
+        "mix_value": 15000000,
+        "equal_outputs": 10,
+        "change_outputs": 10,
+        "inputs": 16,
+        "outputs": 20,
+        "txid": "5c36ac0a6e16d02d7402a2cf8f5158e313acb1e3958238364bbab1cd167d7230"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 5,
+        "mix_value": 8532277,
+        "equal_outputs": 5,
+        "change_outputs": 5,
+        "inputs": 5,
+        "outputs": 10,
+        "txid": "bfc319b6d5fd85fc05e1ec9aae2e33cbc1b95db7bc0d1f0a3de85f6955d63947"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 11,
+        "mix_value": 69888939,
+        "equal_outputs": 11,
+        "change_outputs": 10,
+        "inputs": 16,
+        "outputs": 21,
+        "txid": "208cb8f8513f7954eb106785b8db072f5893110ef46b6444499bc36202e53c8b"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 5,
+        "mix_value": 11270293,
+        "equal_outputs": 5,
+        "change_outputs": 5,
+        "inputs": 5,
+        "outputs": 10,
+        "txid": "5242f7d8a265f0b3d67bc21b5ada74e97d84e2fca598dbe3eea8a4107ef128f0"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 10,
+        "mix_value": 2868956,
+        "equal_outputs": 10,
+        "change_outputs": 9,
+        "inputs": 20,
+        "outputs": 19,
+        "txid": "d25c45927bc27ee46f02679b00ea3345921259d4d561e6439d24b398f66b0337"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 9,
+        "mix_value": 41034387,
+        "equal_outputs": 9,
+        "change_outputs": 9,
+        "inputs": 13,
+        "outputs": 18,
+        "txid": "f27cfed6c2aa680eecbd3e00076e9ac401025f25a4181457a8207f250e2fda02"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 7,
+        "mix_value": 7587146,
+        "equal_outputs": 7,
+        "change_outputs": 7,
+        "inputs": 15,
+        "outputs": 14,
+        "txid": "7b2263f5991d38250fdb6db391b8131304049063f3230141ac2e777696717e4a"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 8,
+        "mix_value": 1874328,
+        "equal_outputs": 8,
+        "change_outputs": 8,
+        "inputs": 11,
+        "outputs": 16,
+        "txid": "9f1808ac4f1cb5dcb39a9a6408bc0ebbe134e6554635914ef6f6073b32998f58"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 7,
+        "mix_value": 6221477,
+        "equal_outputs": 7,
+        "change_outputs": 6,
+        "inputs": 10,
+        "outputs": 13,
+        "txid": "23d2aac9970541155c70340ee198995bf42e7b902efdd7c18097b387dcd6aa8a"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 9,
+        "mix_value": 1000000,
+        "equal_outputs": 9,
+        "change_outputs": 9,
+        "inputs": 10,
+        "outputs": 18,
+        "txid": "71813e9e784b6d00b62770adbb756d5f43ebed2e6067afa2285bbbfe69cb2894"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 12,
+        "mix_value": 3725367,
+        "equal_outputs": 12,
+        "change_outputs": 12,
+        "inputs": 18,
+        "outputs": 24,
+        "txid": "09bcfecd222515454fb95f8daccf11cf6d6c63b572d0202897e87994f5e096e9"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 4,
+        "mix_value": 26404151,
+        "equal_outputs": 4,
+        "change_outputs": 3,
+        "inputs": 7,
+        "outputs": 7,
+        "txid": "6048b11d82df1533f01563351abf2911d56a9849e164ca3986200b4a15757b74"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 3,
+        "mix_value": 17343183,
+        "equal_outputs": 3,
+        "change_outputs": 3,
+        "inputs": 17,
+        "outputs": 6,
+        "txid": "203200c7cf1e17a374f3e02053d7bb38de646b73903f246d10cf5a4dd0f679c4"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 5,
+        "mix_value": 19127238,
+        "equal_outputs": 5,
+        "change_outputs": 5,
+        "inputs": 7,
+        "outputs": 10,
+        "txid": "0725c3925521246277ee437b85dc9453d77377606afb203f13143467ae920e0b"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 7,
+        "mix_value": 1970272,
+        "equal_outputs": 7,
+        "change_outputs": 6,
+        "inputs": 13,
+        "outputs": 13,
+        "txid": "604eeae710616373cf7866e111b2bf99b7b229728926fc6b41cbfd3d09d494e1"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 5,
+        "mix_value": 8204027,
+        "equal_outputs": 5,
+        "change_outputs": 5,
+        "inputs": 5,
+        "outputs": 10,
+        "txid": "c6a72e00b9b81a34cebf36101e653cf121874554a017db2a48d10b02fcb71f50"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 5,
+        "mix_value": 4484552,
+        "equal_outputs": 5,
+        "change_outputs": 5,
+        "inputs": 7,
+        "outputs": 10,
+        "txid": "6d30bf98aa9a8747a2c5ecb36c0dc365bc464adb6ace31068315fbc8d20992ea"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 3,
+        "mix_value": 254479475,
+        "equal_outputs": 3,
+        "change_outputs": 3,
+        "inputs": 29,
+        "outputs": 6,
+        "txid": "9eea6352c26fdc9db579bcc9a593bf8ca57b0c9b1483de456d23db8d6c8c265b"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 3,
+        "mix_value": 100000,
+        "equal_outputs": 3,
+        "change_outputs": 3,
+        "inputs": 3,
+        "outputs": 6,
+        "txid": "f3b40bb561e9b2978d251d6a0c5d5d1d69d641f7e562638e1d21d037b1e3a602"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 4,
+        "mix_value": 9800000,
+        "equal_outputs": 4,
+        "change_outputs": 4,
+        "inputs": 11,
+        "outputs": 8,
+        "txid": "6681003538e3f3e2cdb6d6b3f5973a697743946e8de3a43cbd4f6c16c8368993"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 7,
+        "mix_value": 4790238,
+        "equal_outputs": 7,
+        "change_outputs": 7,
+        "inputs": 10,
+        "outputs": 14,
+        "txid": "812293cd3553865ea76873fbd075bcb67c3f5cdffb5bcaf5cd155ca5c66821ed"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 8,
+        "mix_value": 4000000,
+        "equal_outputs": 8,
+        "change_outputs": 8,
+        "inputs": 16,
+        "outputs": 16,
+        "txid": "c856bbcb89aa8789317ae2f4ccef1b445b659b5d3bb4ab90d4dec83f1b28851f"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 8,
+        "mix_value": 453646066,
+        "equal_outputs": 8,
+        "change_outputs": 7,
+        "inputs": 20,
+        "outputs": 15,
+        "txid": "e2795c74c2adfbffa8fd02f8f4a1cd960882f402756e984efdcbaeb5abd06845"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 11,
+        "mix_value": 5000000,
+        "equal_outputs": 11,
+        "change_outputs": 11,
+        "inputs": 13,
+        "outputs": 22,
+        "txid": "bfd6c0f8622ece3dc18d9345a7cd3768eb7120c13fd13cdad1f8ceccab1d81d8"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 5,
+        "mix_value": 200000000,
+        "equal_outputs": 5,
+        "change_outputs": 5,
+        "inputs": 6,
+        "outputs": 10,
+        "txid": "bc26eb36b725a684ef6008041ce9251d31c574791b476df9f982b10a6c03cb6d"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 10,
+        "mix_value": 15000000,
+        "equal_outputs": 10,
+        "change_outputs": 10,
+        "inputs": 10,
+        "outputs": 20,
+        "txid": "b4a034447dc9b376a6d61839b01e98027426c00c244e7204a0b1136035938c55"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 3,
+        "mix_value": 36939298,
+        "equal_outputs": 3,
+        "change_outputs": 3,
+        "inputs": 4,
+        "outputs": 6,
+        "txid": "f91b5f61d49d0f1b201b176c4f71c1072b038658a78dd5415b66d5fe1b86356e"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 3,
+        "mix_value": 38269503,
+        "equal_outputs": 3,
+        "change_outputs": 3,
+        "inputs": 3,
+        "outputs": 6,
+        "txid": "1b2caf272f2d638641a9bf48a10740734c0e69594781f23a24d8b743426ebf3c"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 10,
+        "mix_value": 2468000,
+        "equal_outputs": 10,
+        "change_outputs": 9,
+        "inputs": 11,
+        "outputs": 19,
+        "txid": "1795da0af2f268ed26af19751362a57e26f972a92b7efe8fb4bda1d3c75840cf"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 10,
+        "mix_value": 3057482,
+        "equal_outputs": 10,
+        "change_outputs": 9,
+        "inputs": 13,
+        "outputs": 19,
+        "txid": "1b86be1d7b1c6c938f33412882e6a44e0fa7f83db986b195f6d5577b3e43750f"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 7,
+        "mix_value": 4360933,
+        "equal_outputs": 7,
+        "change_outputs": 7,
+        "inputs": 15,
+        "outputs": 14,
+        "txid": "d45789bf83a46edbd4ea1da0a24eff24098f30b3cddfa9ef3b12ae33e9aac7b6"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 3,
+        "mix_value": 21201102,
+        "equal_outputs": 3,
+        "change_outputs": 3,
+        "inputs": 5,
+        "outputs": 6,
+        "txid": "d214df9400c54c0f71e9ebec00fa5b0659fffb6dad3d501afd7c1f1eb63759e1"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 11,
+        "mix_value": 519981,
+        "equal_outputs": 11,
+        "change_outputs": 10,
+        "inputs": 12,
+        "outputs": 21,
+        "txid": "735fd6f211f8070b3c5956e4d4acda45dae15919cf3af33bea6c29469e2d4144"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 8,
+        "mix_value": 10367222,
+        "equal_outputs": 8,
+        "change_outputs": 7,
+        "inputs": 15,
+        "outputs": 15,
+        "txid": "a537968bf1561cdb51aace40624c33e2c9f6cec8c1dcfd5f6a3b8562977b08f4"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 5,
+        "mix_value": 22583810,
+        "equal_outputs": 5,
+        "change_outputs": 5,
+        "inputs": 5,
+        "outputs": 10,
+        "txid": "e4967aed81ffc5711d910d6059b055225e51e00c716549d33fec0f1f4e92520c"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 6,
+        "mix_value": 129322196,
+        "equal_outputs": 6,
+        "change_outputs": 6,
+        "inputs": 19,
+        "outputs": 12,
+        "txid": "7c4f18f45676058784f2667d932bb5d1070bec4e30bb7df559445fc22c3dbb19"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 3,
+        "mix_value": 1872061766,
+        "equal_outputs": 3,
+        "change_outputs": 3,
+        "inputs": 3,
+        "outputs": 6,
+        "txid": "4e10ccbe19aeaa6e6c4bdc84c0c62a20518e92fdf6f6ad742332a6e70a63bf50"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 10,
+        "mix_value": 93856,
+        "equal_outputs": 10,
+        "change_outputs": 9,
+        "inputs": 11,
+        "outputs": 19,
+        "txid": "c5034531fbfa7e645eae970101eaa536d1b10c5b9abdc72b933436e6d7db2541"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 8,
+        "mix_value": 923870,
+        "equal_outputs": 8,
+        "change_outputs": 7,
+        "inputs": 15,
+        "outputs": 15,
+        "txid": "e25dc937307cb0d7b2ebfb3c9b6925053f37d7fd3129472f1a394c42a23a609a"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 7,
+        "mix_value": 10851755,
+        "equal_outputs": 7,
+        "change_outputs": 6,
+        "inputs": 7,
+        "outputs": 13,
+        "txid": "9569965065aca0465b8b5bb10006e66b717c9e0b7ae90029d960e9ca6eb30d44"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 5,
+        "mix_value": 809700,
+        "equal_outputs": 5,
+        "change_outputs": 5,
+        "inputs": 9,
+        "outputs": 10,
+        "txid": "e5a09efd4a2fabcd8a724768a6622d031c6783c50276b930684d0962befc9975"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 5,
+        "mix_value": 138348404,
+        "equal_outputs": 5,
+        "change_outputs": 5,
+        "inputs": 8,
+        "outputs": 10,
+        "txid": "51b31f354a5fb215e8dccf3fb771874337064a809d02fbd08df5dd416fc6c7e6"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 7,
+        "mix_value": 5093546,
+        "equal_outputs": 7,
+        "change_outputs": 6,
+        "inputs": 12,
+        "outputs": 13,
+        "txid": "954d5940ac97c62e16354ba19e0d06b13232f25a9cc0ed2da78d644fd950b5cd"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 5,
+        "mix_value": 2413307,
+        "equal_outputs": 5,
+        "change_outputs": 5,
+        "inputs": 6,
+        "outputs": 10,
+        "txid": "874cc361e7d82cf88990ab53e363f6f43c7b3d1c5c25f435059df0a9aa1bede0"
+      },
+      {
+        "status": "CONFORMS",
+        "n": 6,
+        "mix_value": 28208748,
+        "equal_outputs": 6,
+        "change_outputs": 6,
+        "inputs": 25,
+        "outputs": 12,
+        "txid": "9fc966e587f8e5846d8245d8d188a3f53c1725c0b1711c96c9581d839c466952"
+      }
+    ],
+    "non_conforming": [
+      {
+        "status": "NON_CONFORMING",
+        "inputs": 650,
+        "outputs": 1,
+        "largest_equal_group": 1,
+        "distribution": {
+          "1": 1
+        },
+        "txid": "6c2c207a3560525cc7acc3d17a1c4d542542cc1f0387d6bd2ff09fa37bb9c322"
+      },
+      {
+        "status": "NON_CONFORMING",
+        "inputs": 2,
+        "outputs": 1,
+        "largest_equal_group": 1,
+        "distribution": {
+          "1": 1
+        },
+        "txid": "08b26e6b4426a6c23223590394a9bcd329603b344e582d8175957ce6769942ee"
+      },
+      {
+        "status": "NON_CONFORMING",
+        "inputs": 1,
+        "outputs": 1,
+        "largest_equal_group": 1,
+        "distribution": {
+          "1": 1
+        },
+        "txid": "3394e7abf005e42b44582bfab2136da7c391c2eeef0746fcbc45af548f472471"
+      },
+      {
+        "status": "NON_CONFORMING",
+        "inputs": 2,
+        "outputs": 2,
+        "largest_equal_group": 1,
+        "distribution": {
+          "1": 2
+        },
+        "txid": "9cd10718959c0b597ef13b3ffb0bea612980a6390bc4933b1337494ece2c00c6"
+      },
+      {
+        "status": "NON_CONFORMING",
+        "inputs": 102,
+        "outputs": 2,
+        "largest_equal_group": 1,
+        "distribution": {
+          "1": 2
+        },
+        "txid": "a09361ddf3d702f09840b24835408f4f28092fdc08db1a2f7afc2ecd2a15ca6e"
+      },
+      {
+        "status": "NON_CONFORMING",
+        "inputs": 1,
+        "outputs": 1,
+        "largest_equal_group": 1,
+        "distribution": {
+          "1": 1
+        },
+        "txid": "6865a50dfb0144a4d0804a503e90df3a368c3a8d861c2fb8db3410f93d80b1e5"
+      },
+      {
+        "status": "NON_CONFORMING",
+        "inputs": 9,
+        "outputs": 4,
+        "largest_equal_group": 2,
+        "distribution": {
+          "1": 2,
+          "2": 1
+        },
+        "txid": "ae795c8edd19eae3977fbb34f85152e86c6dd4be0569a98fde8b58b89ffca80f"
+      },
+      {
+        "status": "NON_CONFORMING",
+        "inputs": 1,
+        "outputs": 2,
+        "largest_equal_group": 1,
+        "distribution": {
+          "1": 2
+        },
+        "txid": "7ea9729126081a89e6a7d094056d9572c8c20b28b2b21945f3e12304325e2193"
+      },
+      {
+        "status": "NON_CONFORMING",
+        "inputs": 80,
+        "outputs": 1,
+        "largest_equal_group": 1,
+        "distribution": {
+          "1": 1
+        },
+        "txid": "b9a64768c7f3930e2774c48a404046217db1ee8e2ca084a97fb114d184fc3dbf"
+      },
+      {
+        "status": "NON_CONFORMING",
+        "inputs": 2,
+        "outputs": 2,
+        "largest_equal_group": 1,
+        "distribution": {
+          "1": 2
+        },
+        "txid": "e6ccff5e2f1f5454626836932b32dc1f15429a63773922634f41e6fd1c0cd515"
+      },
+      {
+        "status": "NON_CONFORMING",
+        "inputs": 3,
+        "outputs": 2,
+        "largest_equal_group": 1,
+        "distribution": {
+          "1": 2
+        },
+        "txid": "f73047b849eebee193d7d9e7afa94729173e8a3ca19c911a7ad24f418102f33e"
+      },
+      {
+        "status": "NON_CONFORMING",
+        "inputs": 1,
+        "outputs": 1,
+        "largest_equal_group": 1,
+        "distribution": {
+          "1": 1
+        },
+        "txid": "ff30081813510a3fa92ae3b1fea62fe15d37c86bc2c165ba9d2667d477ae89e9"
+      },
+      {
+        "status": "NON_CONFORMING",
+        "inputs": 1,
+        "outputs": 1,
+        "largest_equal_group": 1,
+        "distribution": {
+          "1": 1
+        },
+        "txid": "c4b7e728e733ded736a33bba1d569db62706ed0f5abd497138641d14ca90ea3d"
+      },
+      {
+        "status": "NON_CONFORMING",
+        "inputs": 645,
+        "outputs": 1,
+        "largest_equal_group": 1,
+        "distribution": {
+          "1": 1
+        },
+        "txid": "50e81c1fe5b802d3e5256b56f71e182b653ee5804aa449a9af17f425e7b83b4b"
+      },
+      {
+        "status": "NON_CONFORMING",
+        "inputs": 16,
+        "outputs": 147,
+        "largest_equal_group": 2,
+        "distribution": {
+          "1": 141,
+          "2": 3
+        },
+        "txid": "2e0e4f8756c6721df0dbb8944ac8b3298317ec6f60fcde0eb2b8a89b2d917780"
+      },
+      {
+        "status": "NON_CONFORMING",
+        "inputs": 1,
+        "outputs": 2,
+        "largest_equal_group": 1,
+        "distribution": {
+          "1": 2
+        },
+        "txid": "983ce4fe43a5f808abbb840aff277963607fbcfc98744bdfb179be02dd8c5301"
+      },
+      {
+        "status": "NON_CONFORMING",
+        "inputs": 13,
+        "outputs": 2,
+        "largest_equal_group": 1,
+        "distribution": {
+          "1": 2
+        },
+        "txid": "fd43ecbc0b72208d0a024a650d5b0ae37f8db291c0c74329f72455afdf8e3de1"
+      },
+      {
+        "status": "NON_CONFORMING",
+        "inputs": 1,
+        "outputs": 1,
+        "largest_equal_group": 1,
+        "distribution": {
+          "1": 1
+        },
+        "txid": "d1df8757725d1f81afdd951539bfafa7ddc485b2e3984c8b709dd450ec2d95e9"
+      },
+      {
+        "status": "NON_CONFORMING",
+        "inputs": 1,
+        "outputs": 2,
+        "largest_equal_group": 1,
+        "distribution": {
+          "1": 2
+        },
+        "txid": "607aa53968eef4138476fb0ca1cfd16ba9a62c9e81ab4f4869a6cfbbf3ad88d6"
+      },
+      {
+        "status": "NON_CONFORMING",
+        "inputs": 13,
+        "outputs": 1,
+        "largest_equal_group": 1,
+        "distribution": {
+          "1": 1
+        },
+        "txid": "0103c66a5c6f3c152e4c7684b0bae1d4dc203613f5d3195132a02084fc8415d8"
+      },
+      {
+        "status": "NON_CONFORMING",
+        "inputs": 1,
+        "outputs": 3,
+        "largest_equal_group": 3,
+        "distribution": {
+          "3": 1
+        },
+        "txid": "9876a71d2f02fe654f35fe4358903f8e3f3c779669ea52acc5f16cb05fd897fd"
+      },
+      {
+        "status": "NON_CONFORMING",
+        "inputs": 141,
+        "outputs": 1,
+        "largest_equal_group": 1,
+        "distribution": {
+          "1": 1
+        },
+        "txid": "04c19d8668fa3e98d0fb3ef6ecb9070433e75ec0d0c4aa9fc132483a753b321f"
+      },
+      {
+        "status": "NON_CONFORMING",
+        "inputs": 1,
+        "outputs": 1,
+        "largest_equal_group": 1,
+        "distribution": {
+          "1": 1
+        },
+        "txid": "02f7a4e9bdb8ec5f9c21c71a1967a8a68515b31709bf1d03905b87d0729e59c2"
+      },
+      {
+        "status": "NON_CONFORMING",
+        "inputs": 237,
+        "outputs": 2,
+        "largest_equal_group": 1,
+        "distribution": {
+          "1": 2
+        },
+        "txid": "2164538b3ff9cd5f9e91605449ecb55377c32ebd34c8457a654522ba89c278c5"
+      },
+      {
+        "status": "NON_CONFORMING",
+        "inputs": 1,
+        "outputs": 1,
+        "largest_equal_group": 1,
+        "distribution": {
+          "1": 1
+        },
+        "txid": "44627850f3edd9770ce70b896daf9a0df992ebded95bd7e594997cbe52be3085"
+      },
+      {
+        "status": "NON_CONFORMING",
+        "inputs": 637,
+        "outputs": 1,
+        "largest_equal_group": 1,
+        "distribution": {
+          "1": 1
+        },
+        "txid": "9a3c9f9bc2ee4975e3dc35fb19880d905d54529e698c9d9c7300518e6512bffd"
+      },
+      {
+        "status": "NON_CONFORMING",
+        "inputs": 1,
+        "outputs": 1,
+        "largest_equal_group": 1,
+        "distribution": {
+          "1": 1
+        },
+        "txid": "89c876745caa59d9c7519cf24339cc3c18c26ad01714eadd10806eaa8e27a793"
+      },
+      {
+        "status": "NON_CONFORMING",
+        "inputs": 5,
+        "outputs": 1,
+        "largest_equal_group": 1,
+        "distribution": {
+          "1": 1
+        },
+        "txid": "a2f2498a3e41f7cf7edd06fd5e017ed44fce9f5541e807e146d78bf671b27bb9"
+      },
+      {
+        "status": "NON_CONFORMING",
+        "inputs": 236,
+        "outputs": 295,
+        "largest_equal_group": 21,
+        "distribution": {
+          "12": 3,
+          "10": 3,
+          "15": 3,
+          "7": 6,
+          "5": 1,
+          "1": 5,
+          "9": 2,
+          "14": 1,
+          "8": 2,
+          "21": 1,
+          "13": 1,
+          "16": 1,
+          "11": 2,
+          "6": 2
+        },
+        "txid": "9bd721989e263925938852a9b4a3f1e6017a185a34d82846367c6daa96795081"
+      },
+      {
+        "status": "NON_CONFORMING",
+        "inputs": 1,
+        "outputs": 1,
+        "largest_equal_group": 1,
+        "distribution": {
+          "1": 1
+        },
+        "txid": "d1e6cdfc4f5106dcbf9ce88227614ea2db3cdc07b1be38c9b8bc9dd374641416"
+      },
+      {
+        "status": "NON_CONFORMING",
+        "inputs": 1,
+        "outputs": 2,
+        "largest_equal_group": 1,
+        "distribution": {
+          "1": 2
+        },
+        "txid": "6a6a416719c0c20b3be1d1859c336cea3f8801092e960311369f70026921bc19"
+      },
+      {
+        "status": "NON_CONFORMING",
+        "inputs": 2,
+        "outputs": 1,
+        "largest_equal_group": 1,
+        "distribution": {
+          "1": 1
+        },
+        "txid": "5e8e9d49990c4bee17f2d66a479705fefd34897eab9a0ac06ef1c6ca90c5b075"
+      },
+      {
+        "status": "NON_CONFORMING",
+        "inputs": 5,
+        "outputs": 1,
+        "largest_equal_group": 1,
+        "distribution": {
+          "1": 1
+        },
+        "txid": "0d2de1a57c977cb606a49247b33af387e38a409829e59e4e14041acb9313d302"
+      },
+      {
+        "status": "NON_CONFORMING",
+        "inputs": 1,
+        "outputs": 2,
+        "largest_equal_group": 1,
+        "distribution": {
+          "1": 2
+        },
+        "txid": "e7bb0744c6c912572c3dffa5d34a8487471ff571c7d9716caac44e6d616c9c41"
+      },
+      {
+        "status": "NON_CONFORMING",
+        "inputs": 2,
+        "outputs": 4,
+        "largest_equal_group": 2,
+        "distribution": {
+          "1": 2,
+          "2": 1
+        },
+        "txid": "273fed0a17553ac07816bbfe97cd93397becca1060528878e89021581fb7a72c"
+      },
+      {
+        "status": "NON_CONFORMING",
+        "inputs": 3,
+        "outputs": 2,
+        "largest_equal_group": 1,
+        "distribution": {
+          "1": 2
+        },
+        "txid": "e147994ebfeae2d9170d2efd87d6efca8a120e42674a8024bc98e6d295987c3e"
+      },
+      {
+        "status": "NON_CONFORMING",
+        "inputs": 1,
+        "outputs": 1,
+        "largest_equal_group": 1,
+        "distribution": {
+          "1": 1
+        },
+        "txid": "e78c6649f4832ac4d06d7e9a912ba26aef50f5e4f9e13c6a5cfd95d15705c108"
+      },
+      {
+        "status": "NON_CONFORMING",
+        "inputs": 30,
+        "outputs": 1,
+        "largest_equal_group": 1,
+        "distribution": {
+          "1": 1
+        },
+        "txid": "f6ae2626e2c6576c6a99524058cb4317cf9236259ceef176e3f94caeeabd1ed6"
+      },
+      {
+        "status": "NON_CONFORMING",
+        "inputs": 50,
+        "outputs": 2,
+        "largest_equal_group": 1,
+        "distribution": {
+          "1": 2
+        },
+        "txid": "74e5ff1c2b66095a8edcaffa3f9cf88642c4d1eb1fe46f12d1a05a3cd77252a0"
+      },
+      {
+        "status": "NON_CONFORMING",
+        "inputs": 22,
+        "outputs": 19,
+        "largest_equal_group": 9,
+        "distribution": {
+          "1": 8,
+          "9": 1,
+          "2": 1
+        },
+        "txid": "c4208a0280638a7751e889be083dc4a7d6bc220719061a452c0b0316b6d6b0cc"
+      },
+      {
+        "status": "NON_CONFORMING",
+        "inputs": 1,
+        "outputs": 1,
+        "largest_equal_group": 1,
+        "distribution": {
+          "1": 1
+        },
+        "txid": "1d23307c8f79d1ac7a1242884af7b203544a16f8e8fce164d2b2aaba6ab314d3"
+      },
+      {
+        "status": "NON_CONFORMING",
+        "inputs": 1,
+        "outputs": 1,
+        "largest_equal_group": 1,
+        "distribution": {
+          "1": 1
+        },
+        "txid": "f2241bb1fdc1bf3fd39d6a898329ed5284c6e3c6b0b02f8673ed3bd10fb0c1cd"
+      },
+      {
+        "status": "NON_CONFORMING",
+        "inputs": 3,
+        "outputs": 2,
+        "largest_equal_group": 1,
+        "distribution": {
+          "1": 2
+        },
+        "txid": "d00cc54d2a8d0180c391fc845168ed01fd77135c5544d3b194a19aea074e4e87"
+      },
+      {
+        "status": "NON_CONFORMING",
+        "inputs": 1,
+        "outputs": 1,
+        "largest_equal_group": 1,
+        "distribution": {
+          "1": 1
+        },
+        "txid": "d3ca97490da7eefb30b1215e77cc1527d391c44c3e9851f544f9a4662f1cd147"
+      },
+      {
+        "status": "NON_CONFORMING",
+        "inputs": 4,
+        "outputs": 1,
+        "largest_equal_group": 1,
+        "distribution": {
+          "1": 1
+        },
+        "txid": "82aaa4a501886d72c8cd366e343003a6fd307e4b4004306f8ab29a108aa6feeb"
+      },
+      {
+        "status": "NON_CONFORMING",
+        "inputs": 1,
+        "outputs": 1,
+        "largest_equal_group": 1,
+        "distribution": {
+          "1": 1
+        },
+        "txid": "ba809cd0ff3d872a393b1f77dde92ec8a9fd8a0e50935c8cfd7f915835380552"
+      },
+      {
+        "status": "NON_CONFORMING",
+        "inputs": 1,
+        "outputs": 1,
+        "largest_equal_group": 1,
+        "distribution": {
+          "1": 1
+        },
+        "txid": "b19f312eb7a5368c6666c46581f24f769846196d53239fcc67f794ccf6f2092f"
+      },
+      {
+        "status": "NON_CONFORMING",
+        "inputs": 10,
+        "outputs": 12,
+        "largest_equal_group": 1,
+        "distribution": {
+          "1": 12
+        },
+        "txid": "797f08a3cb33bc250387dfed0c794c3d62f211ade8ce12f78874132838f8877b"
+      },
+      {
+        "status": "NON_CONFORMING",
+        "inputs": 12,
+        "outputs": 1,
+        "largest_equal_group": 1,
+        "distribution": {
+          "1": 1
+        },
+        "txid": "440bbad05cc81cac4102c9a40d87a6a97ac1bd319015dfd098838a4668c9f4fb"
+      }
+    ]
+  }
+}

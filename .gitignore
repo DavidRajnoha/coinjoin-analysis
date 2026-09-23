@@ -9,3 +9,8 @@ __pycache__/
 *.py[cod]
 subset_cache/
 joinmarket/subset_cache
+
+# Local scratch archives and scratch report output
+zin48hw7
+coinjoin-sudoku-analysis-source.zip
+joinmarket/unified_report/temp_report_output/

@@ -1,0 +1,12 @@
+# Build context allowlist: only what docker/blackbox/Dockerfile copies.
+*
+!joinmarket
+!scripts/parallel_blackbox.py
+!scripts/transform_blocksci_to_blocks.py
+!analysis_output/augment_corpus.py
+!docker/blackbox
+joinmarket/subset_cache
+joinmarket/tests
+joinmarket/unified_report/temp_report_output
+joinmarket/whitebox/report_whitebox
+**/__pycache__

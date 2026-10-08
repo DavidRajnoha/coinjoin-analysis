@@ -1,0 +1,708 @@
+<title>JoinMarket Remix Atlas 2026</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a lab-notebook column (~70ch prose) with figures that widen to 980px; a sticky contents rail on wide screens. */
+:root {
+  --bg: #f7f8fa;
+  --surface: #ffffff;
+  --ink: #12161d;
+  --ink-2: #4a5260;
+  --ink-3: #6f7785;
+  --rule: #dfe3ea;
+  --rule-soft: #eceff4;
+  --accent: #1f5fae;
+  --hl: #e8f0fb;
+  --s1: #2a78d6;  /* 2026 augmented (main) */
+  --s2: #eb6834;  /* 2026 as delivered */
+  --s3: #1baf7a;  /* FINDINGS.md 2025 corpus */
+  --s4: #eda100;  /* Möser & Böhme 2016 */
+  --good: #1d7a3e; --warn: #9a6200; --bad: #b3261e;
+  --good-bg: #e6f4ea; --warn-bg: #fdf1dc; --bad-bg: #fbe7e5;
+  --f-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --f-body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #12151b; --surface: #1a1e26; --ink: #eef1f6; --ink-2: #b9c0cc; --ink-3: #8c94a2;
+    --rule: #2c323d; --rule-soft: #232833; --accent: #7fb0f0; --hl: #1d2a3d;
+    --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500;
+    --good: #6cc98a; --warn: #e3b25a; --bad: #f08a80;
+    --good-bg: #17301f; --warn-bg: #33270f; --bad-bg: #3a1c1a;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #12151b; --surface: #1a1e26; --ink: #eef1f6; --ink-2: #b9c0cc; --ink-3: #8c94a2;
+  --rule: #2c323d; --rule-soft: #232833; --accent: #7fb0f0; --hl: #1d2a3d;
+  --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500;
+  --good: #6cc98a; --warn: #e3b25a; --bad: #f08a80;
+  --good-bg: #17301f; --warn-bg: #33270f; --bad-bg: #3a1c1a;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font: 400 15.5px/1.6 var(--f-body); }
+.page { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0 48px; max-width: 1240px; margin: 0 auto; padding-inline: 20px; padding-block: 40px 80px; }
+@media (min-width: 1100px) { .page { grid-template-columns: 210px minmax(0, 1fr); } }
+nav.toc { display: none; }
+@media (min-width: 1100px) {
+  nav.toc { display: block; position: sticky; top: calc(env(safe-area-inset-top, 0px) + 24px); align-self: start; font-size: 13px; }
+}
+nav.toc p { font: 500 11px/1 var(--f-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); margin: 0 0 12px; }
+nav.toc ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+nav.toc a { display: block; padding: 4px 8px; border-radius: 4px; color: var(--ink-2); text-decoration: none; }
+nav.toc a:hover, nav.toc a:focus-visible { background: var(--hl); color: var(--ink); outline: none; }
+main { min-width: 0; max-width: 980px; }
+.prose { max-width: 70ch; }
+h1, h2, h3 { font-family: var(--f-display); text-wrap: balance; letter-spacing: -0.01em; }
+h1 { font-size: clamp(30px, 5vw, 46px); line-height: 1.08; font-weight: 700; margin: 6px 0 14px; }
+h2 { font-size: 26px; font-weight: 700; margin: 0 0 6px; line-height: 1.2; }
+h3 { font-size: 18px; font-weight: 600; margin: 28px 0 6px; }
+.eyebrow { font: 500 12px/1.4 var(--f-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); }
+.lede { font-size: 17.5px; color: var(--ink-2); max-width: 64ch; }
+p { margin: 0 0 12px; }
+a { color: var(--accent); }
+section { padding-block: 44px 8px; border-top: 1px solid var(--rule); margin-top: 44px; scroll-margin-top: 16px; }
+.sec-num { font: 500 13px/1 var(--f-mono); color: var(--accent); margin-bottom: 8px; display: block; }
+code, .mono { font-family: var(--f-mono); font-size: .88em; }
+.num { font-variant-numeric: tabular-nums; }
+
+/* headline figures */
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin: 26px 0 8px; }
+.tile { background: var(--surface); border: 1px solid var(--rule); border-radius: 8px; padding: 16px 18px; display: grid; gap: 4px; align-content: start; }
+.tile .v { font: 700 32px/1.05 var(--f-display); font-variant-numeric: tabular-nums; }
+.tile .k { font-size: 13.5px; color: var(--ink-2); }
+.tile .was { font: 400 12.5px/1.4 var(--f-mono); color: var(--ink-3); }
+
+/* reversal markers */
+.flip { display: inline-block; font: 500 11px/1 var(--f-mono); letter-spacing: .06em; text-transform: uppercase; padding: 3px 6px; border-radius: 3px; background: var(--warn-bg); color: var(--warn); vertical-align: 2px; margin-right: 6px; white-space: nowrap; }
+ul.findings { padding-left: 20px; display: grid; gap: 8px; margin: 12px 0; }
+.callout { background: var(--surface); border: 1px solid var(--rule); border-left: 3px solid var(--accent); padding: 14px 18px; margin: 18px 0; border-radius: 0 6px 6px 0; max-width: 70ch; }
+.callout p:last-child { margin: 0; }
+
+/* figures */
+figure { margin: 22px 0 10px; background: var(--surface); border: 1px solid var(--rule); border-radius: 8px; padding: 18px 18px 12px; min-width: 0; }
+figure .ft { font: 600 15px/1.35 var(--f-body); margin: 0 0 2px; }
+figure .fs { font-size: 13.5px; color: var(--ink-2); margin: 0 0 10px; max-width: 75ch; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 13px; color: var(--ink-2); margin: 4px 0 8px; }
+.legend span { display: inline-flex; align-items: center; gap: 7px; }
+.legend i { width: 14px; height: 4px; border-radius: 2px; display: inline-block; }
+.legend i.sq { width: 11px; height: 11px; border-radius: 2px; }
+.chart { width: 100%; overflow-x: auto; }
+.chart svg { display: block; width: 100%; height: auto; min-width: 520px; }
+.chart svg text { font-family: var(--f-body); font-size: 11.5px; fill: var(--ink-3); }
+.chart svg text.dl { font-size: 11.5px; font-weight: 600; fill: var(--ink-2); }
+.chart svg .grid { stroke: var(--rule-soft); stroke-width: 1; }
+.chart svg .axis { stroke: var(--rule); stroke-width: 1; }
+.chart svg .hit { fill: transparent; cursor: crosshair; }
+.chart svg .hov { stroke: var(--ink-3); stroke-width: 1; stroke-dasharray: 3 3; }
+figcaption { font-size: 12.5px; color: var(--ink-3); margin-top: 8px; }
+details.nums { margin-top: 8px; }
+details.nums summary { cursor: pointer; font: 500 12.5px/1.6 var(--f-mono); color: var(--accent); }
+details.nums summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px; }
+
+/* tables */
+.tw { overflow-x: auto; margin: 14px 0; }
+table { border-collapse: collapse; width: 100%; font-size: 13.5px; font-variant-numeric: tabular-nums; }
+th, td { padding: 6px 10px; text-align: right; border-bottom: 1px solid var(--rule-soft); white-space: nowrap; }
+th { font: 600 12px/1.3 var(--f-body); color: var(--ink-2); border-bottom: 1px solid var(--rule); vertical-align: bottom; }
+th:first-child, td:first-child { text-align: left; }
+td.l, th.l { text-align: left; white-space: normal; }
+tr.em td { font-weight: 600; background: var(--hl); }
+td.old { color: var(--ink-3); }
+
+/* verdict chips */
+.chip { display: inline-block; font: 500 12px/1 var(--f-body); padding: 4px 8px; border-radius: 999px; white-space: nowrap; }
+.chip.ok { background: var(--good-bg); color: var(--good); }
+.chip.mid { background: var(--hl); color: var(--accent); }
+.chip.no { background: var(--bad-bg); color: var(--bad); }
+.chip.ok::before { content: "✓ "; } .chip.no::before { content: "✕ "; } .chip.mid::before { content: "? "; }
+
+/* composition bar */
+.comp { display: flex; height: 34px; border-radius: 4px; overflow: hidden; gap: 2px; background: var(--surface); margin: 8px 0 6px; }
+.comp div { min-width: 2px; }
+.comp-legend { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px 20px; font-size: 13.5px; }
+.comp-legend b { font: 600 15px/1.2 var(--f-display); display: block; font-variant-numeric: tabular-nums; }
+.comp-legend i { display: inline-block; width: 11px; height: 11px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+
+/* glossary */
+dl.gloss { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; max-width: 76ch; }
+@media (min-width: 720px) { dl.gloss { grid-template-columns: 200px minmax(0, 1fr); gap: 10px 22px; } }
+dl.gloss dt { font-weight: 600; }
+dl.gloss dd { margin: 0; color: var(--ink-2); }
+
+/* mechanism diagram */
+.flow { display: grid; gap: 10px; grid-template-columns: minmax(0, 1fr); margin: 16px 0; }
+@media (min-width: 760px) { .flow { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.step { background: var(--surface); border: 1px solid var(--rule); border-radius: 8px; padding: 14px 16px; min-width: 0; }
+.step .eyebrow { display: block; margin-bottom: 6px; }
+.step h4 { margin: 0 0 6px; font: 600 15px/1.3 var(--f-body); }
+.step p { font-size: 13.5px; color: var(--ink-2); margin: 0; }
+.step.bad { border-color: var(--bad); }
+
+#tip { position: fixed; z-index: 10; pointer-events: none; background: var(--surface); color: var(--ink); border: 1px solid var(--rule); border-radius: 6px; padding: 8px 10px; font-size: 12.5px; line-height: 1.45; box-shadow: 0 4px 16px rgba(0,0,0,.14); max-width: 280px; font-variant-numeric: tabular-nums; }
+#tip b { font-weight: 600; }
+#tip .row { display: flex; align-items: center; gap: 6px; }
+#tip .row i { width: 9px; height: 9px; border-radius: 2px; display: inline-block; }
+footer { margin-top: 56px; font-size: 13px; color: var(--ink-3); border-top: 1px solid var(--rule); padding-top: 18px; }
+@media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
+</style>
+
+<div class="page">
+<nav class="toc" aria-label="Contents">
+  <p>Contents</p>
+  <ol>
+    <li><a href="#summary">Summary</a></li>
+    <li><a href="#terms">Terms</a></li>
+    <li><a href="#data">1 · The data and its repairs</a></li>
+    <li><a href="#remix">2 · Remix rate</a></li>
+    <li><a href="#value">3 · Value</a></li>
+    <li><a href="#connectivity">4 · Connectivity</a></li>
+    <li><a href="#density">5 · Traffic density</a></li>
+    <li><a href="#gaps">6 · What is still missing</a></li>
+    <li><a href="#hypotheses">7 · Hypotheses</a></li>
+    <li><a href="#emulation">8 · Emulation calibration</a></li>
+    <li><a href="#sensitivity">9 · Sensitivity</a></li>
+  </ol>
+</nav>
+
+<main>
+<header id="summary">
+  <div class="eyebrow">Mainnet measurement · 2015-01-02 → 2026-10-05 · 176,086 JoinMarket coinjoins</div>
+  <h1>How often JoinMarket coins go back into the mix</h1>
+  <p class="lede">The FINDINGS.md analysis rerun on the 2026 Dumplings rescan, after recovering 19,734 JoinMarket coinjoins the pipeline had filed as ordinary spends. Most of the change from the 2025 numbers is better detection, not different behaviour, and several earlier conclusions reverse.</p>
+
+  <div class="tiles">
+    <div class="tile"><span class="v num">84.6%</span><span class="k">of coinjoin outputs are spent into another labeled coinjoin</span><span class="was">2025 corpus: 32.9%</span></div>
+    <div class="tile"><span class="v num">78–90%</span><span class="k">remix rate in every year, 2015–2026; the 2022–23 dip is gone</span><span class="was">2025 corpus: 13–14% in 2022–23</span></div>
+    <div class="tile"><span class="v num">8.5%</span><span class="k">of ≥1 BTC coinjoins leave exactly one coin untraced on both sides (3,502 txs)</span><span class="was">2025 corpus: 7.4% (1,367 txs)</span></div>
+    <div class="tile"><span class="v num">4,478</span><span class="k">intervening JoinMarket txs until 90% of coinjoins are fully remixed</span><span class="was">2025 corpus: 288</span></div>
+  </div>
+
+  <ul class="findings prose">
+    <li><span class="flip">Reversed</span>The 2022–23 collapse in remixing was a detection artifact. Dumplings filed many coinjoins of those years under the wrong protocol (§1).</li>
+    <li><span class="flip">Reversed</span>Value matters little: remix runs from 66% for the smallest coinjoins to 83% at 1–5 BTC, then drops above 20 BTC (§3).</li>
+    <li><span class="flip">Reversed</span>Busier months do not leak more. The density effect fell from r = +0.65 to +0.24, and is negative for the both-sides signal (§5).</li>
+    <li>Almost every large coinjoin is traceable: 95% of ≥1 BTC coinjoins have at most one mixed output whose destination is unknown (§4).</li>
+    <li>The single-taker question is still open. How often the one untraced output really is the taker's needs ground truth from emulation (§7, §8).</li>
+  </ul>
+</header>
+
+<section id="terms">
+  <span class="sec-num">Terms</span>
+  <h2>Reading the numbers</h2>
+  <dl class="gloss">
+    <dt>Coinjoin, maker, taker</dt><dd>A JoinMarket coinjoin has one taker, who starts it and pays fees, and several makers, who supply liquidity for a fee. Each participant receives one output of the same value and usually one change output. Mainnet data does not say who is who.</dd>
+    <dt>Mixed output</dt><dd>One of the equal-value outputs. A coinjoin with <span class="mono">n</span> participants has <span class="mono">n</span> of them. Change outputs are not mixed.</dd>
+    <dt>Remix</dt><dd>An output spent as an input of another labeled JoinMarket coinjoin.</dd>
+    <dt>Labeled corpus</dt><dd>The transactions identified as JoinMarket coinjoins. "Delivered" is the 2026 Dumplings output as received. "Augmented" adds the coinjoins recovered in §1 and is used throughout unless noted.</dd>
+    <dt>Candidate</dt><dd>An unlabeled transaction that spends outputs of three or more different labeled coinjoins. Ordinary spending rarely does that, so candidates may be missed coinjoins. They set the upper bound of the remix rate.</dd>
+    <dt>All-but-one (abo)</dt><dd>Every mixed output of a coinjoin is traced onward into JoinMarket except exactly one. "Both sides abo" means the same holds for its inputs. The lone untraced coin is a natural guess for the taker's.</dd>
+    <dt>90-day window</dt><dd>Per-year rates count only outputs remixed within 90 days, so recent years are not penalized for having had less time.</dd>
+    <dt>Intervening JM txs</dt><dd>The number of JoinMarket coinjoins broadcast between a coinjoin and the last remix of its outputs. Unlike days, this unit transfers to an emulator running at a different speed.</dd>
+  </dl>
+</section>
+
+<section id="data">
+  <span class="sec-num">§1</span>
+  <h2>The data and its repairs</h2>
+  <div class="prose">
+    <p>The 2026 rescan used the fixed Dumplings detector and found 6.5 times more JoinMarket coinjoins than the 2025 corpus. Two further problems in the pipeline turned up while explaining what remained, and one of them needed repair.</p>
+  </div>
+
+  <div class="tw"><table>
+    <thead><tr><th></th><th>FINDINGS.md (2025)</th><th>2026 delivered</th><th>2026 augmented</th></tr></thead>
+    <tbody>
+      <tr><td>Labeled coinjoins</td><td class="old">24,135</td><td>156,352</td><td><b>176,086</b></td></tr>
+      <tr><td>Last coinjoin</td><td class="old">2025-11-28</td><td>2026-10-05</td><td>2026-10-05</td></tr>
+      <tr><td>Outputs</td><td class="old">279,165</td><td>1,835,657</td><td>2,170,283</td></tr>
+      <tr><td>Outputs with a recorded spender</td><td class="old">98.9%</td><td>98.6%</td><td>97.2%</td></tr>
+      <tr><td>Candidates (≥3 sources), share of corpus</td><td class="old">15,926 (66%)</td><td>30,328 (19%)</td><td>11,661 (7%)</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>Problem 1: JoinMarket coinjoins hidden behind the Wasabi 1 rule</h3>
+  <div class="prose"><p>Dumplings checks for other coinjoin protocols before JoinMarket. Its Wasabi 1 rule is loose enough to catch large JoinMarket coinjoins once JoinMarket moved to native SegWit in 2021, and the damage then spreads to the next coinjoin in the chain.</p></div>
+  <div class="flow">
+    <div class="step bad"><span class="eyebrow">Step 1 · scan</span><h4>A JoinMarket coinjoin is labeled Wasabi 1</h4><p>All native SegWit, ≥10 equal outputs near 0.1 BTC, ≥2 unique outputs. 2,144 JoinMarket coinjoins match.</p></div>
+    <div class="step bad"><span class="eyebrow">Step 2 · scan</span><h4>Its child coinjoins are demoted</h4><p>A transaction spending a "Wasabi" output is marked as not-a-coinjoin and filed as a JoinMarket post-mix spend.</p></div>
+    <div class="step"><span class="eyebrow">Step 3 · post-processing</span><h4>Only the parents are restored</h4><p><span class="mono">restore_false_positives_for_others</span> moves the 2,140 mislabeled parents back, but copies their children as post-mix records without checking them again.</p></div>
+  </div>
+
+  <figure>
+    <p class="ft">Hidden coinjoins appear from 2021, the year JoinMarket switched to native SegWit</p>
+    <p class="fs">Post-mix transactions that pass the fixed JoinMarket rule, per half-year, as a share of the labeled coinjoins in the same half-year.</p>
+    <div class="chart" id="c-hidden"></div>
+    <details class="nums"><summary>Show numbers</summary><div class="tw" id="t-hidden"></div></details>
+  </figure>
+
+  <div class="prose">
+    <p>Of the hidden coinjoins from 2021 on, 97.1% spend an output of a Wasabi 1-shaped JoinMarket coinjoin, against 3.2% of labeled coinjoins from the same years. They are also almost all non-RBF (98%), while the rest of 2021+ JoinMarket is 92% RBF. That points to one specific group of users or software, but this is an association and has not been tested.</p>
+    <p><b>Repair.</b> <span class="mono">augment_corpus.py</span> promotes every post-mix transaction that passes all of the following:</p>
+    <ul>
+      <li>the fixed Dumplings JoinMarket rule;</li>
+      <li>the same <span class="mono">parse_dumplings</span> checks the corpus went through;</li>
+      <li>it is not itself shaped like a Wasabi or Samourai coinjoin.</li>
+    </ul>
+    <p>Run to a fixed point, this adds <b>19,734</b> coinjoins (19,732 in the first pass, 2 in the second).</p>
+  </div>
+
+  <figure>
+    <p class="ft">What the 30,328 candidates in the delivered corpus turned out to be</p>
+    <div class="comp" id="comp" role="img" aria-label="19,101 hidden JoinMarket coinjoins, 9,823 not coinjoin-shaped, about 1,400 not yet attributed"></div>
+    <div class="comp-legend">
+      <div><i style="background:var(--s1)"></i><b>19,101 · 63%</b>JoinMarket coinjoins hidden by the Wasabi 1 rule</div>
+      <div><i style="background:var(--s2)"></i><b>9,823 · 32%</b>not coinjoin-shaped: 6,979 have no equal outputs at all (consolidations)</div>
+      <div><i style="background:var(--ink-3)"></i><b>~1,400 · 5%</b>not attributed: 840 pre-2021, likely the in/out ratio filter; 564 with a parent outside the data</div>
+    </div>
+    <figcaption>The promotion step admits 19,734 transactions, slightly more than the 19,101 candidates shown, because it also picks up post-mix transactions with fewer than three labeled parents.</figcaption>
+  </figure>
+
+  <h3>Problem 2: small early coinjoins tagged as false positives</h3>
+  <div class="prose">
+    <p>43,798 delivered coinjoins carry <span class="mono">fp_reason: MIN_SAME_VALUES_THRESHOLD</span> but were left in the corpus. All have exactly 3 or 4 equal outputs: a taker plus 2 or 3 makers. The upstream check apparently ran with a minimum of 5. Early JoinMarket defaulted to 2 makers, and the only independent count from that period confirms these are real.</p>
+  </div>
+  <figure>
+    <p class="ft">The corpus matches the 2016 JoinMarket study almost exactly</p>
+    <p class="fs">Makers per coinjoin, June 2015 – January 2016 (blocks 358,000–396,048). Corpus: equal outputs minus one. Paper: Möser &amp; Böhme, <i>Join Me on a Market for Anonymity</i>, WEIS 2016, Fig. 5 (8,648 transactions found by graph traversal; default = 2 makers).</p>
+    <div class="legend" id="lg-makers"></div>
+    <div class="chart" id="c-makers"></div>
+    <details class="nums"><summary>Show numbers</summary><div class="tw" id="t-makers"></div></details>
+    <figcaption>The tagged transactions are exactly the 2- and 3-maker bars: 74.4% of the corpus window against 75.4% in the paper. They stay in. One gap remains: 1-maker coinjoins (2 equal outputs, 2.1% in the paper) are absent, because the fixed rule requires at least 3 equal outputs.</figcaption>
+  </figure>
+</section>
+
+<section id="remix">
+  <span class="sec-num">§2</span>
+  <h2>Remix rate</h2>
+  <div class="prose"><p>84.6% of outputs are spent into another labeled coinjoin. Counting candidates as coinjoins raises that to 93.1%. The gap between the two bounds shrank from 28 to 8.5 percentage points, so the remaining uncertainty is small.</p></div>
+
+  <figure>
+    <p class="ft">Most remixing happens within two weeks, and the 2026 corpus sees far more of it</p>
+    <p class="fs">Share of outputs remixed within <i>A</i> days, counting only outputs observable for the full <i>A</i> days. The 2025 corpus has published values at four ages only.</p>
+    <div class="legend" id="lg-age"></div>
+    <div class="chart" id="c-age"></div>
+    <details class="nums"><summary>Show numbers</summary><div class="tw" id="t-age"></div></details>
+    <figcaption>The augmented curve is still rising slowly after 90 days (2.0 pp over the last three ages), so the rate has not fully converged.</figcaption>
+  </figure>
+
+  <figure>
+    <p class="ft">With the hidden coinjoins restored, remixing is flat across the whole decade</p>
+    <p class="fs">Per-year remix rate, outputs remixed within 90 days.</p>
+    <div class="legend" id="lg-year"></div>
+    <div class="chart" id="c-year"></div>
+    <details class="nums"><summary>Show numbers</summary><div class="tw" id="t-year"></div></details>
+    <figcaption>The two series coincide until 2020. From 2021 the delivered corpus falls to 45–48% in 2022–23. The augmented corpus stays at 78–83%, so the dip was coverage, not behaviour.</figcaption>
+  </figure>
+
+  <figure>
+    <p class="ft">Where every output went, per year</p>
+    <p class="fs">Augmented corpus. "Candidate" is an unlabeled transaction that spends outputs of 3+ labeled coinjoins.</p>
+    <div class="legend" id="lg-fate"></div>
+    <div class="chart" id="c-fate"></div>
+    <details class="nums"><summary>Show numbers</summary><div class="tw" id="t-fate"></div></details>
+    <figcaption>"Never spent" rises from 2021 partly because recovered coinjoins only record a spender when that spender is also in the file. About 11% of their outputs look unspent for that reason, so recent remix rates are slightly understated. 2026 is also right-censored.</figcaption>
+  </figure>
+
+  <h3>The upper bound barely depends on the candidate threshold</h3>
+  <div class="tw" id="t-thr"></div>
+  <p class="prose" style="font-size:13.5px;color:var(--ink-2)">The upper bound now moves less than 4 points across thresholds. In the 2025 corpus it moved from 75% to 34%.</p>
+</section>
+
+<section id="value">
+  <span class="sec-num">§3</span>
+  <h2>Value is a weak covariate</h2>
+  <div class="prose"><p>In the 2025 corpus remixing rose fifteenfold from the smallest to the largest coinjoins. Most of that was missing labels: small coinjoins were the ones the old detector missed. Now the spread is about 1.25×. The rate rises up to about 1 BTC, stays flat to 20 BTC, and falls above.</p></div>
+  <figure>
+    <p class="ft">Remix rate by coinjoin size</p>
+    <p class="fs">Coinjoin size = median value of its mixed outputs. 90-day window.</p>
+    <div class="legend" id="lg-value"></div>
+    <div class="chart" id="c-value"></div>
+    <details class="nums"><summary>Show numbers</summary><div class="tw" id="t-value"></div></details>
+  </figure>
+  <div class="prose"><p>The mix of sizes still shifts over time. Coinjoins below 0.5 BTC are 42–70% of 2015–2021 and 83–91% of 2022–23 and 2025–26 (65% in 2024). With remixing flat across sizes, this shift no longer moves the headline rate.</p></div>
+</section>
+
+<section id="connectivity">
+  <span class="sec-num">§4</span>
+  <h2>Connectivity and the all-but-one pattern</h2>
+  <div class="prose"><p>For each coinjoin: how many of its mixed outputs are traced onward into JoinMarket, and how many of its inputs came from it? Candidates count as JoinMarket here.</p></div>
+  <div class="tw" id="t-conn"></div>
+  <div class="callout"><p><b>3,502 coinjoins of ≥1 BTC</b> leave exactly one output and exactly one input untraced (<span class="mono">2026_augmented/both_sides_all_but_one.txt</span>). That is the strongest single-taker signal the data offers. Its overall rate barely moved from 2025 (7.4% → 8.5%), but it no longer rises with value, and it is not stable over time.</p></div>
+
+  <figure>
+    <p class="ft">Outputs: nearly every large coinjoin is traceable in every year</p>
+    <p class="fs">≥1 BTC coinjoins with all, or all but one, mixed outputs traced onward.</p>
+    <div class="legend" id="lg-abo1"></div>
+    <div class="chart" id="c-abo1"></div>
+  </figure>
+  <figure>
+    <p class="ft">Both sides all-but-one: steady until 2021, then rising</p>
+    <p class="fs">≥1 BTC coinjoins with exactly one untraced output and exactly one untraced input.</p>
+    <div class="legend" id="lg-abo2"></div>
+    <div class="chart" id="c-abo2"></div>
+    <details class="nums"><summary>Show numbers</summary><div class="tw" id="t-conny"></div></details>
+    <figcaption>2015–2021 range from 3.6% to 11.6%, and 2023–25 from 16% to 23%. Two readings remain open. One is behaviour: fewer makers remixing, so more single exits. The other is coverage: the 500–800 coinjoins still missing (§6) fall in exactly these years, and each leaves an untraced output on its parent. 2026 is right-censored.</figcaption>
+  </figure>
+</section>
+
+<section id="density">
+  <span class="sec-num">§5</span>
+  <h2>Traffic density no longer predicts leakage</h2>
+  <div class="prose"><p>The 2025 analysis found busier months leaked more, even after removing each year's trend. With better coverage that effect largely disappears. Busier months still trace slightly more outputs, but they show fewer both-sides all-but-one coinjoins, not more.</p></div>
+  <div class="tw"><table>
+    <thead><tr><th>Correlation with monthly coinjoin count (≥1 BTC, 128 months)</th><th>raw</th><th>within year</th><th>2025 within year</th></tr></thead>
+    <tbody>
+      <tr><td>Outputs: all traced</td><td>+0.62</td><td>+0.41</td><td class="old">+0.59</td></tr>
+      <tr class="em"><td>Outputs: all or all but one</td><td>+0.53</td><td>+0.24</td><td class="old">+0.65</td></tr>
+      <tr class="em"><td>Both sides all-but-one</td><td>−0.33</td><td>−0.18</td><td class="old">+0.39</td></tr>
+    </tbody>
+  </table></div>
+  <p class="prose" style="font-size:13.5px;color:var(--ink-2)">"Within year" compares each month with its own year's average, which removes long-term drift. Months with fewer than 30 coinjoins are excluded; the median month has 222.</p>
+</section>
+
+<section id="gaps">
+  <span class="sec-num">§6</span>
+  <h2>What is still missing</h2>
+  <div class="prose">
+    <ul class="findings">
+      <li><b>~500–800 coinjoins two or more hops behind the recovered ones.</b> Their JoinMarket parents were all hidden, so Dumplings never recorded them. An API sample of 200 untraced outputs found 20% spent into JoinMarket-shaped transactions absent from the file. Closing this needs spend lookups (mempool.space, or an indexer on a full node) or a Dumplings rescan with the precedence fix.</li>
+      <li><b>11,661 candidates</b> (7% of the corpus) still absorb 8.5% of outputs. Before the repair, a third of candidates had no coinjoin shape at all. The remaining set is likely richer in such transactions, so the 93.1% upper bound is generous.</li>
+      <li><b>1-maker coinjoins</b> (about 2% of early JoinMarket) are excluded by design.</li>
+      <li>Not rerun: the structural check of candidates against mempool.space. The random-chain baseline (0 of 100) does not depend on the corpus. The corpus invariants all pass.</li>
+    </ul>
+  </div>
+</section>
+
+<section id="hypotheses">
+  <span class="sec-num">§7</span>
+  <h2>Hypotheses</h2>
+  <div class="tw"><table>
+    <thead><tr><th class="l">Hypothesis</th><th class="l">2025 verdict</th><th class="l">2026 verdict</th><th class="l">Evidence now</th></tr></thead>
+    <tbody>
+      <tr><td class="l"><b>H1</b> An all-but-one output marks the taker leaving</td><td class="l"><span class="chip mid">plausible</span></td><td class="l"><span class="chip mid">plausible, unproven</span></td><td class="l">36% of ≥1 BTC coinjoins. Resolves on a similar timescale to fully remixed ones (median 631 vs 574 intervening txs).</td></tr>
+      <tr><td class="l"><b>H2</b> Both sides all-but-one marks a single taker</td><td class="l"><span class="chip mid">plausible</span></td><td class="l"><span class="chip mid">plausible, unproven</span></td><td class="l">8.5% of ≥1 BTC (3,502 txs). 3.6–23.3% depending on year.</td></tr>
+      <tr><td class="l"><b>H3</b> Sudoku plus chain construction closes the loop</td><td class="l"><span class="chip mid">untested</span></td><td class="l"><span class="chip mid">untested</span></td><td class="l">Would cover 95% of ≥1 BTC coinjoins if it works.</td></tr>
+      <tr><td class="l"><b>H4</b> Higher value makes the attack easier</td><td class="l"><span class="chip ok">supported</span></td><td class="l"><span class="chip no">not above ~1 BTC</span></td><td class="l">Remix 83% → 71% from 1–5 BTC to &gt;20 BTC; both-sides abo 8.5% → 7.5% from ≥1 to ≥10 BTC.</td></tr>
+      <tr><td class="l"><b>H5</b> More traffic means lower anonymity</td><td class="l"><span class="chip ok">supported</span></td><td class="l"><span class="chip no">not supported</span></td><td class="l">Within-year r = +0.24, and −0.18 for the both-sides signal.</td></tr>
+      <tr><td class="l"><b>H6</b> The corpus is incomplete</td><td class="l"><span class="chip ok">supported</span></td><td class="l"><span class="chip ok">supported, smaller</span></td><td class="l">Candidates 7% of corpus; ~500–800 hidden coinjoins; the precedence bug identified.</td></tr>
+    </tbody>
+  </table></div>
+  <div class="callout"><p><b>Still unmeasured:</b> the probability that the untraced output of an all-but-one coinjoin belongs to the taker. Mainnet has the behaviour but no roles; only emulation with known wallets can answer it, compared against the random-guess baseline of 1/n.</p></div>
+</section>
+
+<section id="emulation">
+  <span class="sec-num">§8</span>
+  <h2>Emulation calibration</h2>
+  <div class="prose"><p>How long until every mixed output of a coinjoin has been remixed? This sets how long an emulation must keep running after its burn-in, so that edge effects do not masquerade as untraced taker coins.</p></div>
+  <figure>
+    <p class="ft">The cool-down an emulation needs grew about fifteenfold</p>
+    <p class="fs">Lag until all mixed outputs of a coinjoin are remixed, by percentile, in intervening JoinMarket transactions. Log scale.</p>
+    <div class="legend" id="lg-lag"></div>
+    <div class="chart" id="c-lag"></div>
+    <details class="nums"><summary>Show numbers</summary><div class="tw" id="t-lag"></div></details>
+    <figcaption>The 90% retention target moves from about 290 to about 4,500 intervening transactions (91 days on mainnet). Part of this is density: the corpus holds about seven times more coinjoins per day. But the lag in days also roughly tripled (median 2.5 → 8.5 days).</figcaption>
+  </figure>
+</section>
+
+<section id="sensitivity">
+  <span class="sec-num">§9</span>
+  <h2>Sensitivity: without the 3–4 party coinjoins</h2>
+  <div class="prose"><p>§1 shows the 43,979 tagged coinjoins are genuine early JoinMarket, so this is a robustness check, not an alternative estimate. Removing them turns their transactions into unlabeled spenders, which moves part of the remix share into candidates.</p></div>
+  <div class="tw"><table>
+    <thead><tr><th>Metric</th><th>Main (176,086)</th><th>Without 3–4 party (132,107)</th></tr></thead>
+    <tbody>
+      <tr><td>Remix lower / upper bound</td><td>84.6% / 93.1%</td><td>77.6% / 91.3%</td></tr>
+      <tr><td>Candidates (share of corpus)</td><td>11,661 (7%)</td><td>28,308 (21%)</td></tr>
+      <tr><td>Remix &lt;0.01 / 1–5 / &gt;20 BTC</td><td>66.4 / 83.1 / 71.3%</td><td>62.2 / 71.2 / 59.2%</td></tr>
+      <tr><td>≥1 BTC: outputs a+abo / both-sides abo</td><td>95.0% / 8.5%</td><td>89.1% / 9.5%</td></tr>
+      <tr><td>Within-year r: a+abo / both abo</td><td>+0.24 / −0.18</td><td>+0.41 / −0.13</td></tr>
+      <tr><td>Lag p50 / p90 (intervening JM txs)</td><td>574 / 4,478</td><td>620 / 4,659</td></tr>
+    </tbody>
+  </table></div>
+  <p class="prose">The conclusions hold in both: remixing around 80%, a weak value effect, a both-sides signal of 8–10%, no density effect on the signal, and a cool-down of thousands of transactions.</p>
+</section>
+
+<footer>
+  Sources: <span class="mono">analysis_output/FINDINGS_2026.md</span>, with results in <span class="mono">analysis_output/2026_augmented/</span> and <span class="mono">2026_augmented_min5/</span>. Scripts: <span class="mono">augment_corpus.py</span>, <span class="mono">mainnet_remix_analysis.py</span>, <span class="mono">jm_supplementary_analysis.py</span>, <span class="mono">jm_connectivity_analysis.py</span>, <span class="mono">candidate_profile_2026.py</span>. No role attribution exists on mainnet: every rate here is remixing by any participant.
+</footer>
+</main>
+</div>
+<div id="tip" hidden></div>
+
+<script>
+const D = {"aug":{"remix":{"ages":[{"age":1,"rate":44.0},{"age":3,"rate":57.5},{"age":7,"rate":66.5},{"age":14,"rate":72.7},{"age":30,"rate":77.9},{"age":60,"rate":81.3},{"age":90,"rate":82.6},{"age":180,"rate":83.9},{"age":365,"rate":84.6}],"per_year":{"2015":79.7,"2016":85.7,"2017":81.5,"2018":85.5,"2019":89.5,"2020":82.2,"2021":79.9,"2022":79.5,"2023":78.4,"2024":82.9,"2025":79.3,"2026":81.8},"fate":{"2015":{"n":59635,"known":80.9,"cand":7.9,"outside":10.7,"never":0.5},"2016":{"n":427058,"known":86.6,"cand":9.5,"outside":3.6,"never":0.4},"2017":{"n":173646,"known":82.6,"cand":11.4,"outside":5.3,"never":0.8},"2018":{"n":108937,"known":86.8,"cand":8.1,"outside":4.7,"never":0.4},"2019":{"n":163373,"known":90.6,"cand":6.0,"outside":3.2,"never":0.2},"2020":{"n":112482,"known":85.1,"cand":8.3,"outside":5.8,"never":0.8},"2021":{"n":121959,"known":83.3,"cand":8.0,"outside":5.8,"never":2.8},"2022":{"n":188876,"known":82.5,"cand":9.6,"outside":3.8,"never":4.1},"2023":{"n":178658,"known":82.8,"cand":8.7,"outside":4.1,"never":4.5},"2024":{"n":284644,"known":85.1,"cand":8.1,"outside":4.0,"never":2.8},"2025":{"n":205901,"known":83.0,"cand":9.2,"outside":3.0,"never":4.8},"2026":{"n":145114,"known":80.6,"cand":4.8,"outside":2.5,"never":12.1}},"thresholds":[{"n":2,"ext":18458,"out":200019,"ub":93.8},{"n":3,"ext":11661,"out":185148,"ub":93.1},{"n":4,"ext":8734,"out":175709,"ub":92.6},{"n":5,"ext":6964,"out":168070,"ub":92.3},{"n":8,"ext":4482,"out":152538,"ub":91.6},{"n":12,"ext":3077,"out":138485,"ub":90.9},{"n":20,"ext":2032,"out":122018,"ub":90.2}]},"supp":{"s3":{"<0.01":{"txs":23782,"outputs":157096,"outside":11759,"outside_incl_cand":35105,"remixed":104335,"rate":66.41480368691755,"outside_share":7.485231960075368,"outside_incl_cand_share":22.34620868768142},"0.01-0.1":{"txs":49625,"outputs":339838,"outside":15746,"outside_incl_cand":58413,"remixed":259975,"rate":76.49968514409807,"outside_share":4.633384141855825,"outside_incl_cand_share":17.188483924693532},"0.1-0.5":{"txs":41943,"outputs":274395,"outside":14388,"outside_incl_cand":40879,"remixed":220885,"rate":80.49891579657064,"outside_share":5.243535778713169,"outside_incl_cand_share":14.89786621476339},"0.5-1":{"txs":17174,"outputs":103970,"outside":6918,"outside_incl_cand":16094,"remixed":84200,"rate":80.98489949023757,"outside_share":6.653842454554199,"outside_incl_cand_share":15.479465230354911},"1-5":{"txs":26326,"outputs":147325,"remixed":122369,"outside":10200,"outside_incl_cand":21232,"rate":83.06058034956727,"outside_share":6.9234685219752246,"outside_incl_cand_share":14.411674868488037},"5-20":{"txs":12048,"outputs":63629,"remixed":52326,"outside":4983,"outside_incl_cand":10283,"rate":82.23608731867544,"outside_share":7.831334768737526,"outside_incl_cand_share":16.16087004353361},">20":{"txs":2519,"outputs":12092,"outside":1890,"outside_incl_cand":3252,"remixed":8623,"rate":71.31161098246774,"outside_share":15.630168706582865,"outside_incl_cand_share":26.893814091961627}},"s4":{"0.0":{"n":176086,"out_all":56.959099530911026,"out_abo":33.514305509807706,"out_a_abo":90.47340504071873,"in_all":64.6360301216451,"in_abo":21.84273593584953,"both_all":40.40241700078371,"both_abo":8.826368933362106,"out_5plus":1.428847267812319,"in_5plus":3.055893143123247,"both_abo_count":15542},"1.0":{"n":40973,"out_all":59.09257315793327,"out_abo":35.904131989358845,"out_a_abo":94.99670514729212,"in_all":62.95365240524248,"in_abo":21.150513752959267,"both_all":39.9702242940473,"both_abo":8.547091987406342,"out_5plus":0.4271105362067703,"in_5plus":3.66826934810729,"both_abo_count":3502},"5.0":{"n":14576,"out_all":58.445389681668495,"out_abo":36.48463227222832,"out_a_abo":94.93002195389681,"in_all":64.44154774972559,"in_abo":19.518386388583973,"both_all":37.671514818880354,"both_abo":6.737102085620197,"out_5plus":0.6311745334796927,"in_5plus":4.178100987925356,"both_abo_count":982},"10.0":{"n":7264,"out_all":54.708149779735685,"out_abo":39.179515418502206,"out_a_abo":93.8876651982379,"in_all":61.82544052863436,"in_abo":21.351872246696036,"both_all":33.0534140969163,"both_abo":7.502753303964757,"out_5plus":1.1976872246696035,"in_5plus":4.006057268722467,"both_abo_count":545}},"s4_years_ge1":{"2015":{"n":2419,"out_all":61.678379495659364,"out_abo":34.559735427862755,"out_a_abo":96.2381149235221,"in_all":63.29061595700702,"in_abo":22.77800744109136,"both_all":42.86895411326995,"both_abo":9.466721785861926},"2016":{"n":10267,"out_all":61.702542125255675,"out_abo":36.76828674393688,"out_a_abo":98.47082886919256,"in_all":63.484951787279634,"in_abo":19.927924418038376,"both_all":41.99863640790883,"both_abo":7.986753676828674},"2017":{"n":5613,"out_all":60.092642080883664,"out_abo":36.362016746837696,"out_a_abo":96.45465882772136,"in_all":58.57830037413147,"in_abo":20.114021022626048,"both_all":37.30625334045965,"both_abo":8.248708355603064},"2018":{"n":4649,"out_all":69.9720369972037,"out_abo":28.285652828565283,"out_a_abo":98.25768982576898,"in_all":72.98343729834373,"in_abo":15.659281565928158,"both_all":51.753065175306524,"both_abo":4.366530436653044},"2019":{"n":6847,"out_all":72.32364539214254,"out_abo":26.376515262158613,"out_a_abo":98.70016065430114,"in_all":75.94566963633707,"in_abo":16.050825178910472,"both_all":53.994450124141956,"both_abo":3.607419307726011},"2020":{"n":3117,"out_all":54.89252486365095,"out_abo":39.36477382098171,"out_a_abo":94.25729868463266,"in_all":61.43727943535451,"in_abo":23.54828360603144,"both_all":34.84119345524543,"both_abo":11.581649021495027},"2021":{"n":2033,"out_all":52.18888342351205,"out_abo":38.022626660108216,"out_a_abo":90.21151008362025,"in_all":60.895228726020655,"in_abo":21.298573536645353,"both_all":33.98917855386129,"both_abo":10.821446138711265},"2022":{"n":916,"out_all":35.37117903930131,"out_abo":51.7467248908297,"out_a_abo":87.117903930131,"in_all":53.82096069868996,"in_abo":16.70305676855895,"both_all":22.925764192139738,"both_abo":6.877729257641921},"2023":{"n":971,"out_all":24.20185375901133,"out_abo":55.3038105046344,"out_a_abo":79.50566426364573,"in_all":36.4572605561277,"in_abo":35.11843460350155,"both_all":13.80020597322348,"both_abo":23.274974253347064},"2024":{"n":3254,"out_all":38.72157344806392,"out_abo":48.64781807006761,"out_a_abo":87.36939151813154,"in_all":47.23417332513829,"in_abo":34.17332513829133,"both_all":18.74615857406269,"both_abo":16.256914566687154},"2025":{"n":528,"out_all":28.78787878787879,"out_abo":41.09848484848485,"out_a_abo":69.88636363636364,"in_all":35.60606060606061,"in_abo":35.79545454545455,"both_all":14.393939393939394,"both_abo":16.28787878787879},"2026":{"n":359,"out_all":17.827298050139277,"out_abo":35.37604456824512,"out_a_abo":53.2033426183844,"in_all":38.71866295264624,"in_abo":42.061281337047355,"both_all":6.685236768802229,"both_abo":15.32033426183844}},"s8_1":{"n":100177,"days":{"50":8.540173611111111,"75":31.401215277777776,"90":90.93291666666667,"95":163.71460648148147,"99":367.8770601851852},"txs":{"50":574,"75":1775,"90":4478,"95":8077,"99":18939},"within_50":7.262146001577207,"within_100":14.733920959900976,"within_500":46.739271489463654,"h1_median_full":574,"h1_median_abo":631.0}}},"dlv":{"remix":{"ages":[{"age":1,"rate":40.1},{"age":3,"rate":51.9},{"age":7,"rate":59.5},{"age":14,"rate":64.5},{"age":30,"rate":68.6},{"age":60,"rate":71.2},{"age":90,"rate":72.3},{"age":180,"rate":73.6},{"age":365,"rate":75.2}],"per_year":{"2015":79.7,"2016":85.7,"2017":81.5,"2018":85.5,"2019":89.5,"2020":81.6,"2021":64.2,"2022":45.1,"2023":47.6,"2024":64.6,"2025":52.0,"2026":47.7},"fate":{"2015":{"n":59635,"known":80.9,"cand":7.9,"outside":10.7,"never":0.5},"2016":{"n":427058,"known":86.6,"cand":9.5,"outside":3.6,"never":0.4},"2017":{"n":173646,"known":82.6,"cand":11.4,"outside":5.3,"never":0.8},"2018":{"n":108920,"known":86.8,"cand":8.1,"outside":4.7,"never":0.4},"2019":{"n":163373,"known":90.6,"cand":6.0,"outside":3.2,"never":0.2},"2020":{"n":111931,"known":84.5,"cand":8.9,"outside":5.8,"never":0.8},"2021":{"n":100239,"known":66.7,"cand":24.7,"outside":7.2,"never":1.4},"2022":{"n":114071,"known":46.8,"cand":44.6,"outside":7.0,"never":1.7},"2023":{"n":114749,"known":50.7,"cand":41.1,"outside":6.8,"never":1.5},"2024":{"n":228108,"known":66.0,"cand":27.8,"outside":5.1,"never":1.2},"2025":{"n":143858,"known":54.8,"cand":38.0,"outside":4.6,"never":2.6},"2026":{"n":90069,"known":45.9,"cand":39.2,"outside":4.3,"never":10.5}},"thresholds":[{"n":2,"ext":37811,"out":386143,"ub":94.5},{"n":3,"ext":30328,"out":369448,"ub":93.5},{"n":4,"ext":26150,"out":355226,"ub":92.8},{"n":5,"ext":22629,"out":338968,"ub":91.9},{"n":8,"ext":14133,"out":281148,"ub":88.7},{"n":12,"ext":7643,"out":213887,"ub":85.1},{"n":20,"ext":3293,"out":144629,"ub":81.3}]},"supp":{"s3":{"<0.01":{"txs":22010,"outputs":141545,"outside":11771,"outside_incl_cand":52660,"remixed":77321,"rate":54.626443887103036,"outside_share":8.316083224416264,"outside_incl_cand_share":37.20371613267866},"0.01-0.1":{"txs":42494,"outputs":275272,"outside":15839,"outside_incl_cand":95451,"remixed":169813,"rate":61.68916562527246,"outside_share":5.753945188758755,"outside_incl_cand_share":34.67515766223953},"0.1-0.5":{"txs":35413,"outputs":216794,"outside":14580,"outside_incl_cand":66576,"remixed":146064,"rate":67.37455833648532,"outside_share":6.725278374862772,"outside_incl_cand_share":30.709336974270506},"0.5-1":{"txs":15555,"outputs":90447,"outside":6926,"outside_incl_cand":20970,"remixed":68187,"rate":75.38890178778732,"outside_share":7.6575231903766845,"outside_incl_cand_share":23.184848585359383},"1-5":{"txs":24975,"outputs":136607,"remixed":109332,"outside":10229,"outside_incl_cand":25610,"rate":80.03396604859194,"outside_share":7.487903255323666,"outside_incl_cand_share":18.74720914740826},"5-20":{"txs":11830,"outputs":61913,"remixed":50074,"outside":4985,"outside_incl_cand":11157,"rate":80.87800623455495,"outside_share":8.05162082276743,"outside_incl_cand_share":18.02044804806745},">20":{"txs":2503,"outputs":11982,"outside":1897,"outside_incl_cand":3321,"remixed":8479,"rate":70.76448005341346,"outside_share":15.832081455516608,"outside_incl_cand_share":27.71657486229344}},"s4":{"0.0":{"n":156352,"out_all":60.27681129758493,"out_abo":32.7651708964388,"out_a_abo":93.04198219402375,"in_all":65.74396234138355,"in_abo":21.06656774457634,"both_all":43.241531927957425,"both_abo":8.57232398690135,"out_5plus":1.3495190339746215,"in_5plus":3.012433483422022,"both_abo_count":13403},"1.0":{"n":39351,"out_all":60.52451017763209,"out_abo":35.53658102716577,"out_a_abo":96.06109120479785,"in_all":63.657848593428376,"in_abo":20.810144596071257,"both_all":41.01293486823715,"both_abo":8.327615562501588,"out_5plus":0.3862671850778887,"in_5plus":3.6212548601052066,"both_abo_count":3277},"5.0":{"n":14339,"out_all":58.979008299044565,"out_abo":36.34842039193807,"out_a_abo":95.32742869098263,"in_all":64.46056210335449,"in_abo":19.457423809191717,"both_all":37.966385382523185,"both_abo":6.667131599135226,"out_5plus":0.6206848455261873,"in_5plus":4.163470255945324,"both_abo_count":956},"10.0":{"n":7196,"out_all":54.933296275708734,"out_abo":39.1467481934408,"out_a_abo":94.08004446914953,"in_all":61.72873818788216,"in_abo":21.38688160088938,"both_all":33.15730961645358,"both_abo":7.5319622012229015,"out_5plus":1.209005002779322,"in_5plus":4.002223457476376,"both_abo_count":542}},"s4_years_ge1":{"2015":{"n":2419,"out_all":61.678379495659364,"out_abo":34.559735427862755,"out_a_abo":96.2381149235221,"in_all":63.29061595700702,"in_abo":22.77800744109136,"both_all":42.86895411326995,"both_abo":9.466721785861926},"2016":{"n":10267,"out_all":61.702542125255675,"out_abo":36.76828674393688,"out_a_abo":98.47082886919256,"in_all":63.484951787279634,"in_abo":19.927924418038376,"both_all":41.99863640790883,"both_abo":7.986753676828674},"2017":{"n":5613,"out_all":60.092642080883664,"out_abo":36.362016746837696,"out_a_abo":96.45465882772136,"in_all":58.57830037413147,"in_abo":20.114021022626048,"both_all":37.30625334045965,"both_abo":8.248708355603064},"2018":{"n":4649,"out_all":69.9720369972037,"out_abo":28.285652828565283,"out_a_abo":98.25768982576898,"in_all":72.98343729834373,"in_abo":15.659281565928158,"both_all":51.753065175306524,"both_abo":4.366530436653044},"2019":{"n":6847,"out_all":72.32364539214254,"out_abo":26.376515262158613,"out_a_abo":98.70016065430114,"in_all":75.94566963633707,"in_abo":16.050825178910472,"both_all":53.994450124141956,"both_abo":3.607419307726011},"2020":{"n":3115,"out_all":54.92776886035313,"out_abo":39.3900481540931,"out_a_abo":94.31781701444622,"in_all":61.444622792937395,"in_abo":23.531300160513645,"both_all":34.86356340288925,"both_abo":11.58908507223114},"2021":{"n":1812,"out_all":53.58719646799117,"out_abo":37.80353200883002,"out_a_abo":91.3907284768212,"in_all":61.53421633554083,"in_abo":21.688741721854303,"both_all":34.8233995584989,"both_abo":10.98233995584989},"2022":{"n":568,"out_all":41.725352112676056,"out_abo":50.0,"out_a_abo":91.72535211267606,"in_all":54.04929577464789,"in_abo":16.725352112676056,"both_all":26.056338028169012,"both_abo":5.985915492957746},"2023":{"n":665,"out_all":26.917293233082706,"out_abo":59.248120300751886,"out_a_abo":86.1654135338346,"in_all":35.93984962406015,"in_abo":36.390977443609025,"both_all":15.338345864661655,"both_abo":26.61654135338346},"2024":{"n":2814,"out_all":40.6183368869936,"out_abo":49.182658137882015,"out_a_abo":89.80099502487562,"in_all":47.157071783937454,"in_abo":34.32835820895522,"both_all":19.29637526652452,"both_abo":16.240227434257285},"2025":{"n":368,"out_all":35.32608695652174,"out_abo":42.934782608695656,"out_a_abo":78.26086956521739,"in_all":35.59782608695652,"in_abo":34.23913043478261,"both_all":17.391304347826086,"both_abo":15.760869565217392},"2026":{"n":214,"out_all":19.158878504672895,"out_abo":36.915887850467286,"out_a_abo":56.074766355140184,"in_all":40.654205607476634,"in_abo":37.850467289719624,"both_all":8.878504672897195,"both_abo":13.551401869158877}},"s8_1":{"n":93591,"days":{"50":6.6443055555555555,"75":23.45628472222222,"90":71.52918981481481,"95":135.22390046296297,"99":354.4961689814815},"txs":{"50":443,"75":1366,"90":3675,"95":6819,"99":18080},"within_50":9.57250162943018,"within_100":18.300905001549296,"within_500":52.93991943669797,"h1_median_full":443,"h1_median_abo":393.0}}},"hidden_halfyear":[{"p":"2015H1","hidden":1,"corpus":165},{"p":"2015H2","hidden":46,"corpus":1912},{"p":"2016H1","hidden":159,"corpus":4990},{"p":"2016H2","hidden":247,"corpus":18097},{"p":"2017H1","hidden":131,"corpus":8817},{"p":"2017H2","hidden":28,"corpus":3089},{"p":"2018H1","hidden":14,"corpus":2433},{"p":"2018H2","hidden":44,"corpus":4899},{"p":"2019H1","hidden":53,"corpus":7031},{"p":"2019H2","hidden":36,"corpus":4311},{"p":"2020H1","hidden":23,"corpus":3576},{"p":"2020H2","hidden":58,"corpus":3766},{"p":"2021H1","hidden":455,"corpus":3202},{"p":"2021H2","hidden":984,"corpus":3628},{"p":"2022H1","hidden":1184,"corpus":3589},{"p":"2022H2","hidden":2934,"corpus":3512},{"p":"2023H1","hidden":2469,"corpus":3631},{"p":"2023H2","hidden":1132,"corpus":3208},{"p":"2024H1","hidden":1334,"corpus":4664},{"p":"2024H2","hidden":2269,"corpus":9669},{"p":"2025H1","hidden":1575,"corpus":4482},{"p":"2025H2","hidden":2038,"corpus":4296},{"p":"2026H1","hidden":2150,"corpus":3940},{"p":"2026H2","hidden":1141,"corpus":1647}]};
+const C = { aug: 'var(--s1)', dlv: 'var(--s2)', old: 'var(--s3)', paper: 'var(--s4)' };
+const NAMES = { aug: '2026 augmented', dlv: '2026 delivered', old: '2025 corpus (FINDINGS.md)', paper: 'Möser & Böhme 2016' };
+const NS = 'http://www.w3.org/2000/svg';
+const fmt = (v, d = 1) => v == null ? '–' : v.toFixed(d);
+const fmtInt = v => v.toLocaleString('en-US');
+
+function el(tag, attrs = {}, parent) {
+  const e = document.createElementNS(NS, tag);
+  for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+  if (parent) parent.appendChild(e);
+  return e;
+}
+function legend(id, items, square = false) {
+  const box = document.getElementById(id);
+  box.innerHTML = items.map(([name, col]) => `<span><i class="${square ? 'sq' : ''}" style="background:${col}"></i>${name}</span>`).join('');
+}
+function table(id, head, rows) {
+  document.getElementById(id).innerHTML = '<table><thead><tr>' + head.map(h => `<th>${h}</th>`).join('') +
+    '</tr></thead><tbody>' + rows.map(r => '<tr>' + r.map(c => `<td>${c}</td>`).join('') + '</tr>').join('') + '</tbody></table>';
+}
+
+const tip = document.getElementById('tip');
+function showTip(evt, html) {
+  tip.innerHTML = html; tip.hidden = false;
+  const r = tip.getBoundingClientRect();
+  let x = evt.clientX + 14, y = evt.clientY + 14;
+  if (x + r.width > innerWidth - 8) x = evt.clientX - r.width - 14;
+  if (y + r.height > innerHeight - 8) y = evt.clientY - r.height - 14;
+  tip.style.left = x + 'px'; tip.style.top = y + 'px';
+}
+function hideTip() { tip.hidden = true; }
+const tipRow = (col, label, val) => `<div class="row"><i style="background:${col}"></i>${label}: <b>${val}</b></div>`;
+
+/* frame: returns svg, plot box and y-scale helpers */
+function frame(id, { w = 900, h = 300, l = 46, r = 20, t = 14, b = 34, ymax = 100, ymin = 0, yticks = [0, 25, 50, 75, 100], yfmt = v => v + '%', ylog = false } = {}) {
+  const host = document.getElementById(id);
+  const svg = el('svg', { viewBox: `0 0 ${w} ${h}`, role: 'img' });
+  host.appendChild(svg);
+  const pw = w - l - r, ph = h - t - b;
+  const y = ylog ? v => t + ph - (Math.log10(v) - Math.log10(ymin)) / (Math.log10(ymax) - Math.log10(ymin)) * ph
+                 : v => t + ph - (v - ymin) / (ymax - ymin) * ph;
+  for (const tv of yticks) {
+    el('line', { x1: l, x2: w - r, y1: y(tv), y2: y(tv), class: tv === yticks[0] && !ylog ? 'axis' : 'grid' }, svg);
+    const tx = el('text', { x: l - 8, y: y(tv) + 4, 'text-anchor': 'end' }, svg); tx.textContent = yfmt(tv);
+  }
+  return { svg, l, r, t, b, w, h, pw, ph, y };
+}
+function xLabels(f, labels, xs, every = 1) {
+  labels.forEach((lab, i) => {
+    if (i % every) return;
+    const tx = el('text', { x: xs[i], y: f.h - f.b + 18, 'text-anchor': 'middle' }, f.svg); tx.textContent = lab;
+  });
+}
+
+/* line chart with crosshair tooltip; series: [{key,name,col,vals:[number|null]}] */
+function lineChart(id, labels, series, opts = {}) {
+  const f = frame(id, opts);
+  const n = labels.length, step = f.pw / (n - 1);
+  const xs = labels.map((_, i) => f.l + i * step);
+  xLabels(f, labels, xs, opts.every || 1);
+  for (const s of series) {
+    let d = '', pen = false;
+    s.vals.forEach((v, i) => { if (v == null) { pen = false; return; } d += (pen ? 'L' : 'M') + xs[i] + ' ' + f.y(v); pen = true; });
+    el('path', { d, fill: 'none', stroke: s.col, 'stroke-width': 2, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }, f.svg);
+    s.vals.forEach((v, i) => { if (v != null) el('circle', { cx: xs[i], cy: f.y(v), r: 4, fill: s.col, stroke: 'var(--surface)', 'stroke-width': 2 }, f.svg); });
+    if (s.label !== false) {
+      let li = s.vals.length - 1; while (s.vals[li] == null) li--;
+      const tx = el('text', { x: xs[li] - 6, y: f.y(s.vals[li]) + (s.labelDy || -10), 'text-anchor': 'end', class: 'dl' }, f.svg);
+      tx.textContent = s.short || s.name;
+    }
+  }
+  const guide = el('line', { y1: f.t, y2: f.h - f.b, class: 'hov', visibility: 'hidden' }, f.svg);
+  labels.forEach((lab, i) => {
+    const hit = el('rect', { x: xs[i] - step / 2, y: f.t, width: step, height: f.ph, class: 'hit' }, f.svg);
+    hit.addEventListener('mousemove', e => {
+      guide.setAttribute('x1', xs[i]); guide.setAttribute('x2', xs[i]); guide.setAttribute('visibility', 'visible');
+      showTip(e, `<b>${opts.tipTitle ? opts.tipTitle(lab) : lab}</b>` + series.map(s => s.vals[i] == null ? '' : tipRow(s.col, s.name, (opts.tipFmt || (v => fmt(v) + '%'))(s.vals[i]))).join(''));
+    });
+    hit.addEventListener('mouseleave', () => { guide.setAttribute('visibility', 'hidden'); hideTip(); });
+  });
+  return f;
+}
+
+/* grouped bars */
+function barChart(id, labels, series, opts = {}) {
+  const f = frame(id, opts);
+  const n = labels.length, band = f.pw / n, inner = band * 0.72, bw = Math.min(28, (inner - 2 * (series.length - 1)) / series.length);
+  const groupW = bw * series.length + 2 * (series.length - 1);
+  const xs = labels.map((_, i) => f.l + band * i + band / 2);
+  xLabels(f, labels, xs);
+  labels.forEach((lab, i) => {
+    series.forEach((s, j) => {
+      const v = s.vals[i]; if (v == null) return;
+      const x = xs[i] - groupW / 2 + j * (bw + 2), y0 = f.y(opts.ymin || 0), y1 = f.y(v), hgt = Math.max(0, y0 - y1);
+      const r = Math.min(4, hgt, bw / 2);
+      el('path', { d: `M${x} ${y0}V${y1 + r}Q${x} ${y1} ${x + r} ${y1}H${x + bw - r}Q${x + bw} ${y1} ${x + bw} ${y1 + r}V${y0}Z`, fill: s.col }, f.svg);
+      if (opts.dl && opts.dl(s, i)) { const tx = el('text', { x: x + bw / 2, y: y1 - 6, 'text-anchor': 'middle', class: 'dl' }, f.svg); tx.textContent = opts.dlFmt ? opts.dlFmt(v) : fmt(v, 0) + '%'; }
+    });
+    const hit = el('rect', { x: xs[i] - band / 2, y: f.t, width: band, height: f.ph, class: 'hit' }, f.svg);
+    hit.addEventListener('mousemove', e => showTip(e, `<b>${opts.tipTitle ? opts.tipTitle(lab, i) : lab}</b>` + series.map(s => s.vals[i] == null ? '' : tipRow(s.col, s.name, (opts.tipFmt || (v => fmt(v) + '%'))(s.vals[i], s, i))).join('')));
+    hit.addEventListener('mouseleave', hideTip);
+  });
+  return f;
+}
+
+/* 100% stacked columns */
+function stackChart(id, labels, parts, rows, opts = {}) {
+  const f = frame(id, opts);
+  const n = labels.length, band = f.pw / n, bw = Math.min(46, band * 0.66);
+  const xs = labels.map((_, i) => f.l + band * i + band / 2);
+  xLabels(f, labels, xs);
+  rows.forEach((row, i) => {
+    let acc = 0;
+    parts.forEach(p => {
+      const v = row[p.key]; const y1 = f.y(acc + v), y0 = f.y(acc);
+      const hgt = Math.max(0, y0 - y1 - 2);
+      if (hgt > 0) el('rect', { x: xs[i] - bw / 2, y: y1 + 2, width: bw, height: hgt, fill: p.col }, f.svg);
+      acc += v;
+    });
+    const hit = el('rect', { x: xs[i] - band / 2, y: f.t, width: band, height: f.ph, class: 'hit' }, f.svg);
+    hit.addEventListener('mousemove', e => showTip(e, `<b>${labels[i]}</b> · ${fmtInt(row.n)} outputs` + parts.slice().reverse().map(p => tipRow(p.col, p.name, fmt(row[p.key]) + '%')).join('')));
+    hit.addEventListener('mouseleave', hideTip);
+  });
+  return f;
+}
+
+/* ---------- data wiring ---------- */
+const A = D.aug, V = D.dlv;
+
+// §1 hidden coinjoins by half-year
+{
+  const hy = D.hidden_halfyear;
+  const labels = hy.map(r => r.p.replace('H1', ' H1').replace('H2', ' H2'));
+  const ratio = hy.map(r => r.hidden / r.corpus * 100);
+  barChart('c-hidden', labels.map(l => l.endsWith('H1') ? l.slice(0, 4) : ''), [{ name: 'Hidden coinjoins per 100 labeled', col: C.aug, vals: ratio }],
+    { ymax: 100, yticks: [0, 25, 50, 75, 100], yfmt: v => v + '%',
+      tipTitle: (_, i) => labels[i], tipFmt: (v, s, i) => `${fmt(v)}% (${fmtInt(hy[i].hidden)} hidden / ${fmtInt(hy[i].corpus)} labeled)`,
+      dl: (s, i) => ratio[i] === Math.max(...ratio), dlFmt: v => fmt(v, 0) + '%' });
+  table('t-hidden', ['Half-year', 'Hidden, passing rule', 'Labeled', 'Ratio'], hy.map(r => [r.p, fmtInt(r.hidden), fmtInt(r.corpus), fmt(r.hidden / r.corpus * 100) + '%']));
+}
+
+// §1 composition bar
+document.getElementById('comp').innerHTML =
+  `<div style="flex:19101;background:var(--s1)"></div><div style="flex:9823;background:var(--s2)"></div><div style="flex:1404;background:var(--ink-3)"></div>`;
+
+// §1 maker counts vs paper
+{
+  const labels = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10+'];
+  const corpus = [0, 4674, 1778, 1229, 663, 164, 117, 30, 13, 5];
+  const paper = [184, 4734, 1783, 1066, 624, 163, 54, 20, 12, 8];
+  legend('lg-makers', [['Corpus (2026 augmented), 8,673 txs', C.aug], ['Möser & Böhme 2016, 8,648 txs', C.paper]], true);
+  barChart('c-makers', labels, [{ name: 'Corpus', col: C.aug, vals: corpus }, { name: 'Paper', col: C.paper, vals: paper }],
+    { ymax: 5000, yticks: [0, 1000, 2000, 3000, 4000, 5000], yfmt: v => fmtInt(v), l: 54,
+      tipTitle: l => `${l} maker${l === '1' ? '' : 's'} · ${l === '10+' ? '11+' : (+l + 1)} equal outputs` + (l === '2' || l === '3' ? ' · tagged' : ''),
+      tipFmt: v => fmtInt(v), dl: (s, i) => i === 1 || i === 2, dlFmt: v => fmtInt(v) });
+  table('t-makers', ['Makers', 'Corpus', 'Corpus share', 'Paper', 'Paper share'],
+    labels.map((l, i) => [l, fmtInt(corpus[i]), fmt(corpus[i] / 8673 * 100) + '%', fmtInt(paper[i]), fmt(paper[i] / 8648 * 100) + '%']));
+}
+
+// §2 remix by age
+{
+  const ages = A.remix.ages.map(r => r.age);
+  const oldMap = { 30: 31.5, 90: 32.9, 180: 33.5, 365: 34.3 };
+  const s = [
+    { name: NAMES.aug, short: 'augmented', col: C.aug, vals: A.remix.ages.map(r => r.rate) },
+    { name: NAMES.dlv, short: 'delivered', col: C.dlv, vals: V.remix.ages.map(r => r.rate), labelDy: 18 },
+    { name: NAMES.old, short: '2025 corpus', col: C.old, vals: ages.map(a => oldMap[a] ?? null) },
+  ];
+  legend('lg-age', s.map(x => [x.name, x.col]));
+  lineChart('c-age', ages.map(a => a + ' d'), s, { tipTitle: l => 'Remixed within ' + l.replace(' d', ' days') });
+  table('t-age', ['Age', NAMES.aug, NAMES.dlv, NAMES.old], ages.map((a, i) => [a + ' d', fmt(s[0].vals[i]) + '%', fmt(s[1].vals[i]) + '%', s[2].vals[i] == null ? '–' : fmt(s[2].vals[i]) + '%']));
+}
+
+// §2 per-year 90-day rate
+{
+  const years = Object.keys(A.remix.per_year);
+  const s = [
+    { name: NAMES.aug, short: 'augmented', col: C.aug, vals: years.map(y => A.remix.per_year[y]) },
+    { name: NAMES.dlv, short: 'delivered', col: C.dlv, vals: years.map(y => V.remix.per_year[y]), labelDy: 18 },
+  ];
+  legend('lg-year', s.map(x => [x.name, x.col]));
+  lineChart('c-year', years, s);
+  table('t-year', ['Year', NAMES.aug, NAMES.dlv], years.map((y, i) => [y, fmt(s[0].vals[i]) + '%', fmt(s[1].vals[i]) + '%']));
+}
+
+// §2 fate per year
+{
+  const years = Object.keys(A.remix.fate);
+  const parts = [
+    { key: 'known', name: 'Remixed into labeled coinjoin', col: 'var(--s1)' },
+    { key: 'cand', name: 'Spent into candidate', col: 'var(--s2)' },
+    { key: 'outside', name: 'Spent outside', col: 'var(--s3)' },
+    { key: 'never', name: 'Never spent / not recorded', col: 'var(--s4)' },
+  ];
+  legend('lg-fate', parts.map(p => [p.name, p.col]), true);
+  const rows = years.map(y => { const r = A.remix.fate[y]; const tot = r.known + r.cand + r.outside + r.never; return { ...r, never: r.never + (100 - tot) }; });
+  stackChart('c-fate', years, parts, rows);
+  table('t-fate', ['Year', 'Outputs', ...parts.map(p => p.name)], years.map((y, i) => [y, fmtInt(rows[i].n), ...parts.map(p => fmt(A.remix.fate[y][p.key]) + '%')]));
+}
+
+// §2 thresholds
+table('t-thr', ['Candidate threshold (sources)', 'Candidate txs', 'Outputs absorbed', 'Upper bound'],
+  A.remix.thresholds.map(r => [(r.n === 3 ? '<b>3 (used)</b>' : r.n), fmtInt(r.ext), fmtInt(r.out), fmt(r.ub) + '%']));
+
+// §3 value
+{
+  const keys = ['<0.01', '0.01-0.1', '0.1-0.5', '0.5-1', '1-5', '5-20', '>20'];
+  const old = [3.5, 9.9, 15.5, 32.2, 42.7, 53.7, 54.5];
+  const s3 = A.supp.s3;
+  const s = [
+    { name: NAMES.aug, col: C.aug, vals: keys.map(k => s3[k].rate) },
+    { name: NAMES.old, col: C.old, vals: old },
+  ];
+  legend('lg-value', s.map(x => [x.name, x.col]), true);
+  barChart('c-value', keys.map(k => k.replace('-', '–') + ' BTC'), s,
+    { tipFmt: (v, ser, i) => ser === s[0] ? `${fmt(v)}% · ${fmtInt(s3[keys[i]].txs)} txs` : fmt(v) + '%', dl: ser => ser === s[0] });
+  table('t-value', ['Size (BTC)', 'Txs', 'Outputs', 'Remix rate', 'Not in corpus', '2025 rate'],
+    keys.map((k, i) => [k, fmtInt(s3[k].txs), fmtInt(s3[k].outputs), fmt(s3[k].rate) + '%', fmt(s3[k].outside_incl_cand_share) + '%', old[i] + '%']));
+}
+
+// §4 connectivity table
+{
+  const s4 = A.supp.s4, cols = ['0.0', '1.0', '5.0', '10.0'];
+  const rows = [
+    ['Coinjoins', k => fmtInt(s4[k].n), '15,935'],
+    ['Outputs: all traced', k => fmt(s4[k].out_all) + '%', '35.7%'],
+    ['Outputs: all but one', k => fmt(s4[k].out_abo) + '%', '39.3%'],
+    ['<b>Outputs: all or all but one</b>', k => '<b>' + fmt(s4[k].out_a_abo) + '%</b>', '75.0%'],
+    ['Inputs: all traced', k => fmt(s4[k].in_all) + '%', '20.5%'],
+    ['Inputs: all but one', k => fmt(s4[k].in_abo) + '%', '17.8%'],
+    ['Both sides fully traced', k => fmt(s4[k].both_all) + '%', '9.2%'],
+    ['<b>Both sides all-but-one</b>', k => '<b>' + fmt(s4[k].both_abo) + '%</b>', '7.4%'],
+    ['5+ untraced outputs', k => fmt(s4[k].out_5plus) + '%', '1.5%'],
+    ['5+ untraced inputs', k => fmt(s4[k].in_5plus) + '%', '29.9%'],
+  ];
+  document.getElementById('t-conn').innerHTML = '<table><thead><tr><th>Coinjoin size</th><th>all</th><th>≥1 BTC</th><th>≥5 BTC</th><th>≥10 BTC</th><th>≥1 BTC in 2025</th></tr></thead><tbody>' +
+    rows.map(([lab, f, old]) => `<tr><td>${lab}</td>${cols.map(k => `<td>${f(k)}</td>`).join('')}<td class="old">${old}</td></tr>`).join('') + '</tbody></table>';
+}
+
+// §4 per-year small multiples
+{
+  const yrs = A.supp.s4_years_ge1, years = Object.keys(yrs);
+  const oldA = { 2015: 63.0, 2016: 76.8, 2017: 82.8, 2018: 79.2, 2019: 79.9, 2020: 65.9, 2021: 68.7, 2022: 51.3, 2023: 27.6, 2024: 70.0, 2025: 14.6 };
+  const oldB = { 2015: 7.1, 2016: 7.0, 2017: 7.6, 2018: 7.5, 2019: 7.2, 2020: 6.3, 2021: 7.3, 2022: 4.1, 2023: 1.3, 2024: 10.2, 2025: 1.0 };
+  const s1 = [{ name: NAMES.aug, short: 'augmented', col: C.aug, vals: years.map(y => yrs[y].out_a_abo) },
+              { name: NAMES.old, short: '2025 corpus', col: C.old, vals: years.map(y => oldA[y] ?? null), labelDy: 18 }];
+  legend('lg-abo1', s1.map(x => [x.name, x.col]));
+  lineChart('c-abo1', years, s1, { h: 260, tipTitle: y => `${y} · ${fmtInt(yrs[y].n)} coinjoins ≥1 BTC` });
+  const s2 = [{ name: NAMES.aug, short: 'augmented', col: C.aug, vals: years.map(y => yrs[y].both_abo) },
+              { name: NAMES.old, short: '2025 corpus', col: C.old, vals: years.map(y => oldB[y] ?? null), labelDy: 18 }];
+  legend('lg-abo2', s2.map(x => [x.name, x.col]));
+  lineChart('c-abo2', years, s2, { h: 260, ymax: 25, yticks: [0, 5, 10, 15, 20, 25], tipTitle: y => `${y} · ${fmtInt(yrs[y].n)} coinjoins ≥1 BTC` });
+  table('t-conny', ['Year', 'Coinjoins', 'Out all', 'Out abo', 'Out a+abo', 'In all', 'In abo', 'Both all', 'Both abo'],
+    years.map(y => { const r = yrs[y]; return [y, fmtInt(r.n), ...['out_all', 'out_abo', 'out_a_abo', 'in_all', 'in_abo', 'both_all', 'both_abo'].map(k => fmt(r[k]) + '%')]; }));
+}
+
+// §8 lag quantiles (log scale)
+{
+  const q = ['50', '75', '90', '95', '99'];
+  const old = [36, 104, 288, 511, 1911];
+  const L = A.supp.s8_1;
+  const s = [{ name: NAMES.aug, col: C.aug, vals: q.map(k => L.txs[k]) }, { name: NAMES.old, col: C.old, vals: old }];
+  legend('lg-lag', s.map(x => [x.name, x.col]), true);
+  barChart('c-lag', q.map(k => 'p' + k), s, {
+    ylog: true, ymin: 10, ymax: 30000, yticks: [10, 100, 1000, 10000], yfmt: v => fmtInt(v), l: 56,
+    tipTitle: l => l + ' of coinjoins fully remixed within',
+    tipFmt: (v, ser, i) => ser === s[0] ? `${fmtInt(v)} txs · ${fmt(L.days[q[i]])} days` : `${fmtInt(v)} txs`,
+    dl: () => true, dlFmt: v => fmtInt(v) });
+  table('t-lag', ['Percentile', 'Intervening JM txs', 'Days', '2025 txs', '2025 days'],
+    q.map((k, i) => ['p' + k, fmtInt(L.txs[k]), fmt(L.days[k]), fmtInt(old[i]), [2.5, 9.2, 29.7, 59.0, 160.7][i]]));
+}
+</script>

@@ -1,0 +1,125 @@
+{
+ "description": "Per half-year: candidates (delivered 2026 corpus) that pass the patched Dumplings rule, against untagged labeled coinjoins. Source: local rule evaluation on the postmix section.",
+ "rows": [
+  {
+   "period": "2015H1",
+   "hidden": 1,
+   "labeled": 165
+  },
+  {
+   "period": "2015H2",
+   "hidden": 46,
+   "labeled": 1912
+  },
+  {
+   "period": "2016H1",
+   "hidden": 159,
+   "labeled": 4990
+  },
+  {
+   "period": "2016H2",
+   "hidden": 247,
+   "labeled": 18097
+  },
+  {
+   "period": "2017H1",
+   "hidden": 131,
+   "labeled": 8817
+  },
+  {
+   "period": "2017H2",
+   "hidden": 28,
+   "labeled": 3089
+  },
+  {
+   "period": "2018H1",
+   "hidden": 14,
+   "labeled": 2433
+  },
+  {
+   "period": "2018H2",
+   "hidden": 44,
+   "labeled": 4899
+  },
+  {
+   "period": "2019H1",
+   "hidden": 53,
+   "labeled": 7031
+  },
+  {
+   "period": "2019H2",
+   "hidden": 36,
+   "labeled": 4311
+  },
+  {
+   "period": "2020H1",
+   "hidden": 23,
+   "labeled": 3576
+  },
+  {
+   "period": "2020H2",
+   "hidden": 58,
+   "labeled": 3766
+  },
+  {
+   "period": "2021H1",
+   "hidden": 455,
+   "labeled": 3202
+  },
+  {
+   "period": "2021H2",
+   "hidden": 984,
+   "labeled": 3628
+  },
+  {
+   "period": "2022H1",
+   "hidden": 1184,
+   "labeled": 3589
+  },
+  {
+   "period": "2022H2",
+   "hidden": 2934,
+   "labeled": 3512
+  },
+  {
+   "period": "2023H1",
+   "hidden": 2469,
+   "labeled": 3631
+  },
+  {
+   "period": "2023H2",
+   "hidden": 1132,
+   "labeled": 3208
+  },
+  {
+   "period": "2024H1",
+   "hidden": 1334,
+   "labeled": 4664
+  },
+  {
+   "period": "2024H2",
+   "hidden": 2269,
+   "labeled": 9669
+  },
+  {
+   "period": "2025H1",
+   "hidden": 1575,
+   "labeled": 4482
+  },
+  {
+   "period": "2025H2",
+   "hidden": 2038,
+   "labeled": 4296
+  },
+  {
+   "period": "2026H1",
+   "hidden": 2150,
+   "labeled": 3940
+  },
+  {
+   "period": "2026H2",
+   "hidden": 1141,
+   "labeled": 1647
+  }
+ ]
+}

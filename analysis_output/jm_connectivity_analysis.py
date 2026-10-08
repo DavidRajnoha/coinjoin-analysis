@@ -233,6 +233,9 @@ def report_years(res: Dict[str, Any], min_n: int = 20):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--corpus', default=CORPUS)
+    ap.add_argument('--candidates', default=CANDIDATES,
+                    help='output-side candidate txids, from mainnet_remix_analysis.py')
+    ap.add_argument('--out', default=OUT_DIR)
     ap.add_argument('--mode', choices=['corpus', 'candidates', 'both'], default='both')
     ap.add_argument('--all-outputs', action='store_true',
                     help='count every output, not just standard-denomination ones')
@@ -243,7 +246,7 @@ def main():
     args = ap.parse_args()
 
     cjs = load(args.corpus)
-    out_cand = load_candidates()
+    out_cand = load_candidates(args.candidates)
     in_cand = input_side_candidates(cjs)
 
     print(f"corpus coinjoins            : {len(cjs)}")
@@ -268,7 +271,7 @@ def main():
         results['candidates'] = res
 
     if args.export and 'candidates' in results:
-        path = os.path.join(OUT_DIR, 'both_sides_all_but_one.txt')
+        path = os.path.join(args.out, 'both_sides_all_but_one.txt')
         with open(path, 'w') as fh:
             for txid in sorted(results['candidates']['all_but_one_txids']):
                 fh.write(txid + "\n")

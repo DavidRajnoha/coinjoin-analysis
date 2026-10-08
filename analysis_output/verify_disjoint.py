@@ -7,13 +7,19 @@ meaningful if no transaction can land in two buckets. By construction a candidat
 is an EXTERNAL spender, i.e. one that is not itself a corpus coinjoin - this script
 checks that construction actually held, rather than assuming it.
 
-Run:  .venv/bin/python analysis_output/verify_disjoint.py
+Run:  .venv/bin/python analysis_output/verify_disjoint.py [--corpus PATH] [--candidates PATH]
 Exits non-zero if any invariant fails.
 """
-import json, collections, sys, os
+import argparse, json, collections, sys, os
 
 CORPUS = 'data/joinmarket/real-data/coinjoin_tx_info.json'
 CAND = 'analysis_output/suspicious_unlabeled_cj_candidates.txt'
+
+ap = argparse.ArgumentParser()
+ap.add_argument('--corpus', default=CORPUS)
+ap.add_argument('--candidates', default=CAND)
+args = ap.parse_args()
+CORPUS, CAND = args.corpus, args.candidates
 
 d = json.load(open(CORPUS))
 cjs = d['coinjoins']

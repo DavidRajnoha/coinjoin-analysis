@@ -1,0 +1,7 @@
+round 1: promoted 19732
+round 2: promoted 2
+round 3: promoted 0
+promoted 19734 txs (181 tagged MIN_SAME_VALUES_THRESHOLD); corpus now 176086
+promoted per year: {'2018': 1, '2020': 36, '2021': 1403, '2022': 4330, '2023': 3701, '2024': 3405, '2025': 3589, '2026': 3269}
+wrote data/joinmarket/real-data-2026/coinjoin_tx_info_augmented.json
+wrote data/joinmarket/real-data-2026/coinjoin_tx_info_augmented_min5.json (132107 coinjoins)

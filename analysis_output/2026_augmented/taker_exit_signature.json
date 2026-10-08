@@ -1,0 +1,154 @@
+{
+ "by_amount": {
+  "0.0": {
+   "n": 176086,
+   "both_abo": 15542,
+   "exit_1_1_1": 3089,
+   "sweep_1_1_0": 5688,
+   "exit_any": 8777,
+   "exit_k_1_1": 5141
+  },
+  "1.0": {
+   "n": 40973,
+   "both_abo": 3502,
+   "exit_1_1_1": 620,
+   "sweep_1_1_0": 845,
+   "exit_any": 1465,
+   "exit_k_1_1": 1227
+  },
+  "5.0": {
+   "n": 14576,
+   "both_abo": 982,
+   "exit_1_1_1": 145,
+   "sweep_1_1_0": 291,
+   "exit_any": 436,
+   "exit_k_1_1": 295
+  },
+  "10.0": {
+   "n": 7264,
+   "both_abo": 545,
+   "exit_1_1_1": 69,
+   "sweep_1_1_0": 145,
+   "exit_any": 214,
+   "exit_k_1_1": 128
+  }
+ },
+ "abo_change_split_ge1": {
+  "0": 2819,
+  "1": 620,
+  "2": 54,
+  "3": 9
+ },
+ "cospend_ge1": {
+  "different txs": 455,
+  "one unspent": 80,
+  "same tx": 13,
+  "both unspent": 72
+ },
+ "per_year_ge1": {
+  "2015": {
+   "n": 2419,
+   "both_abo": 229,
+   "exit_1_1_1": 20,
+   "sweep_1_1_0": 40,
+   "exit_any": 60,
+   "cospent": 0
+  },
+  "2016": {
+   "n": 10267,
+   "both_abo": 820,
+   "exit_1_1_1": 93,
+   "sweep_1_1_0": 151,
+   "exit_any": 244,
+   "cospent": 2
+  },
+  "2017": {
+   "n": 5613,
+   "both_abo": 463,
+   "exit_1_1_1": 102,
+   "sweep_1_1_0": 82,
+   "exit_any": 184,
+   "cospent": 3
+  },
+  "2018": {
+   "n": 4649,
+   "both_abo": 203,
+   "exit_1_1_1": 45,
+   "sweep_1_1_0": 59,
+   "exit_any": 104,
+   "cospent": 1
+  },
+  "2019": {
+   "n": 6847,
+   "both_abo": 247,
+   "exit_1_1_1": 39,
+   "sweep_1_1_0": 104,
+   "exit_any": 143,
+   "cospent": 0
+  },
+  "2020": {
+   "n": 3117,
+   "both_abo": 361,
+   "exit_1_1_1": 36,
+   "sweep_1_1_0": 80,
+   "exit_any": 116,
+   "cospent": 0
+  },
+  "2021": {
+   "n": 2033,
+   "both_abo": 220,
+   "exit_1_1_1": 50,
+   "sweep_1_1_0": 37,
+   "exit_any": 87,
+   "cospent": 0
+  },
+  "2022": {
+   "n": 916,
+   "both_abo": 63,
+   "exit_1_1_1": 15,
+   "sweep_1_1_0": 21,
+   "exit_any": 36,
+   "cospent": 0
+  },
+  "2023": {
+   "n": 971,
+   "both_abo": 226,
+   "exit_1_1_1": 59,
+   "sweep_1_1_0": 26,
+   "exit_any": 85,
+   "cospent": 1
+  },
+  "2024": {
+   "n": 3254,
+   "both_abo": 529,
+   "exit_1_1_1": 112,
+   "sweep_1_1_0": 202,
+   "exit_any": 314,
+   "cospent": 2
+  },
+  "2025": {
+   "n": 528,
+   "both_abo": 86,
+   "exit_1_1_1": 24,
+   "sweep_1_1_0": 26,
+   "exit_any": 50,
+   "cospent": 3
+  },
+  "2026": {
+   "n": 359,
+   "both_abo": 55,
+   "exit_1_1_1": 25,
+   "sweep_1_1_0": 17,
+   "exit_any": 42,
+   "cospent": 1
+  }
+ },
+ "untraced_inputs_given_out_1_1_ge1": {
+  "0": 808,
+  "1": 620,
+  "2": 278,
+  "3": 130,
+  "4": 82,
+  "5": 117
+ }
+}

@@ -1,0 +1,50 @@
+corpus coinjoins            : 156352
+output-side candidates      : 30328
+input-side candidates       : 23732  (feed >=3 distinct coinjoins)
+  overlap between the two   : 21112
+denominator                 : standard-denomination outputs only
+amount filter               : median mixed output >= 1.0 BTC
+
+========================================================================
+JM = labeled corpus + output-side + input-side candidates  (n=39351 transactions)
+========================================================================
+  OUTPUT SIDE (mixed outputs only)
+    all mixed outputs -> JM        :  23817 ( 60.5%)
+    exactly one output unexplained :  13984 ( 35.5%)
+    all + all-but-one              :  37801 ( 96.1%)
+    (single-output txs excluded    : 0)
+  INPUT SIDE
+    all inputs from JM             :  25050 ( 63.7%)
+    exactly one input unexplained  :   8189 ( 20.8%)
+    (single-input txs excluded     : 0)
+  BOTH SIDES  <- the deanonymisation signal
+    fully connected both sides     :  16139 ( 41.0%)
+    one unexplained in AND one out :   3277 (  8.3%)
+  distribution of unexplained outputs / inputs per tx:
+     0: outputs  23817 ( 60.5%)   inputs  25050 ( 63.7%)
+     1: outputs  13984 ( 35.5%)   inputs   8189 ( 20.8%)
+     2: outputs   1221 (  3.1%)   inputs   2733 (  6.9%)
+     3: outputs    150 (  0.4%)   inputs   1247 (  3.2%)
+     4: outputs     27 (  0.1%)   inputs    707 (  1.8%)
+    5+: outputs    152 (  0.4%)   inputs   1425 (  3.6%)
+
+   year    txs  out all  out abo  out a+abo  in all  in abo  both all  both abo
+   2015   2419    61.7%    34.6%      96.2%   63.3%   22.8%     42.9%      9.5%
+   2016  10267    61.7%    36.8%      98.5%   63.5%   19.9%     42.0%      8.0%
+   2017   5613    60.1%    36.4%      96.5%   58.6%   20.1%     37.3%      8.2%
+   2018   4649    70.0%    28.3%      98.3%   73.0%   15.7%     51.8%      4.4%
+   2019   6847    72.3%    26.4%      98.7%   75.9%   16.1%     54.0%      3.6%
+   2020   3115    54.9%    39.4%      94.3%   61.4%   23.5%     34.9%     11.6%
+   2021   1812    53.6%    37.8%      91.4%   61.5%   21.7%     34.8%     11.0%
+   2022    568    41.7%    50.0%      91.7%   54.0%   16.7%     26.1%      6.0%
+   2023    665    26.9%    59.2%      86.2%   35.9%   36.4%     15.3%     26.6%
+   2024   2814    40.6%    49.2%      89.8%   47.2%   34.3%     19.3%     16.2%
+   2025    368    35.3%    42.9%      78.3%   35.6%   34.2%     17.4%     15.8%
+   2026    214    19.2%    36.9%      56.1%   40.7%   37.9%      8.9%     13.6%
+    * fewer than 20 transactions - rate is unreliable
+
+  wrote analysis_output/2026/both_sides_all_but_one.txt (3277 txids)
+
+  NOTE: these are SIGNAL frequencies. The probability that an all-but-one
+  transaction really has a single identifiable taker must be measured
+  against ground truth - see simulate_single_taker_leak.py.

@@ -1,0 +1,22 @@
+corpus coinjoins (labeled)     : 156352
+suspicious candidates          : 30328
+
+[1] overlap (corpus AND candidate): 0
+    PASS - the two sets are disjoint
+
+[2] duplicate txids in file: 0
+    PASS
+
+[3] re-derived candidates: 30328
+    missing from file: 0, extra in file: 0
+    PASS - file reproduces exactly
+
+[4] partition check over 1835657 outputs
+    known=1347685  suspicious=369448  outside=92710  never=25814
+    sum=1835657 (must equal 1835657)
+    PASS - buckets partition all outputs, no double counting
+
+RATIO: candidates / labeled corpus = 30328/156352 = 0.194  (19.4%)
+if ALL candidates were true coinjoins, corpus would grow to 186680 (+19%)
+
+ALL CHECKS PASSED
